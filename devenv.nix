@@ -20,6 +20,8 @@
         extraPackages = [ pkgs.openssl ];
       };
 
+      commitizen.enable = true;
+
       rustfmt.enable = true;
     };
 
