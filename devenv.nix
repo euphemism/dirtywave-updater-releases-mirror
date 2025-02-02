@@ -1,8 +1,11 @@
 { config, pkgs, lib, ... }:
 
 {
+  cachix.enable = false;
+
   languages.rust = {
     enable = true;
+
     # https://devenv.sh/reference/options/#languagesrustchannel
     channel = "nightly";
 
