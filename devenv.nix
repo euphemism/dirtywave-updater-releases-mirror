@@ -3,7 +3,10 @@
 {
   cachix.enable = false;
 
-  env.BIOME_BINARY = "${pkgs.biome}/bin/biome";
+  env = {
+    BIOME_BINARY = "${pkgs.biome}/bin/biome";
+    TAURI_ROOT = "${config.env.DEVENV_ROOT}/src-tauri";
+  };
 
   languages = {
     javascript = {
@@ -33,9 +36,14 @@
 
   git-hooks = {
     hooks = {
-      biome = { enable = true; };
+      biome = {
+        after = [ "commitizen" ];
+        enable = true;
+        fail_fast = true;
+      };
 
       clippy = {
+        after = [ "biome" "rustfmt" ];
         enable = true;
         settings.offline = lib.mkDefault false;
         extraPackages = [ pkgs.openssl ];
@@ -43,10 +51,13 @@
 
       commitizen.enable = true;
 
-      rustfmt.enable = true;
+      rustfmt = {
+        after = [ "biome" ];
+        enable = true;
+      };
     };
 
-    settings.rust.cargoManifestPath = "${config.env.DEVENV_ROOT}/Cargo.toml";
+    settings.rust.cargoManifestPath = "${config.env.TAURI_ROOT}/Cargo.toml";
   };
 
   packages = [

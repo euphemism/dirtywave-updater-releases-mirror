@@ -3,6 +3,7 @@
 		"biomejs.biome",
 		"jnoortheen.nix-ide",
 		"redhat.vscode-yaml",
-		"rust-lang.rust-analyzer"
+		"rust-lang.rust-analyzer",
+		"tauri-apps.tauri-vscode"
 	]
 }
