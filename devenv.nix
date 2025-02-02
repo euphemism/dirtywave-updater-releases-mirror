@@ -1,45 +1,37 @@
-{ pkgs, lib, config, inputs, ... }:
+{ config, pkgs, lib, ... }:
 
 {
-  # https://devenv.sh/basics/
-  env.GREET = "devenv";
+  languages.rust = {
+    enable = true;
+    # https://devenv.sh/reference/options/#languagesrustchannel
+    channel = "nightly";
 
-  # https://devenv.sh/packages/
-  packages = [ pkgs.git ];
+    targets = [ "aarch64-apple-darwin" "wasm32-unknown-unknown" ];
 
-  # https://devenv.sh/languages/
-  # languages.rust.enable = true;
+    components =
+      [ "rustc" "cargo" "clippy" "rustfmt" "rust-analyzer" "rust-std" ];
+  };
 
-  # https://devenv.sh/processes/
-  # processes.cargo-watch.exec = "cargo-watch";
+  git-hooks = {
+    hooks = {
+      clippy = {
+        enable = true;
+        settings.offline = lib.mkDefault false;
+        extraPackages = [ pkgs.openssl ];
+      };
 
-  # https://devenv.sh/services/
-  # services.postgres.enable = true;
+      rustfmt.enable = true;
+    };
 
-  # https://devenv.sh/scripts/
-  scripts.hello.exec = ''
-    echo hello from $GREET
-  '';
+    settings.rust.cargoManifestPath = "${config.env.DEVENV_ROOT}/Cargo.toml";
+  };
 
-  enterShell = ''
-    hello
-    git --version
-  '';
-
-  # https://devenv.sh/tasks/
-  # tasks = {
-  #   "myproj:setup".exec = "mytool build";
-  #   "devenv:enterShell".after = [ "myproj:setup" ];
-  # };
-
-  # https://devenv.sh/tests/
-  enterTest = ''
-    echo "Running tests"
-    git --version | grep --color=auto "${pkgs.git.version}"
-  '';
-
-  # https://devenv.sh/pre-commit-hooks/
-  # pre-commit.hooks.shellcheck.enable = true;
+  packages = [
+    pkgs.binaryen # use a newer version of wasm-opt
+    pkgs.nodejs
+    pkgs.wasm-pack
+  ] ++ lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk;
+    [ frameworks.Security ]); # TODO: Look into why this is needed
 
   # See full reference at https://devenv.sh/reference/options/
 }

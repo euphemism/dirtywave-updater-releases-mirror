@@ -1,3 +1,7 @@
 {
-  "recommendations": ["jnoortheen.nix-ide", "redhat.vscode-yaml"]
+  "recommendations": [
+    "jnoortheen.nix-ide",
+    "redhat.vscode-yaml",
+    "rust-lang.rust-analyzer"
+  ]
 }
