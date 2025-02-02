@@ -4,10 +4,10 @@
 	"version": "0.1.0",
 	"identifier": "com.dirt-loader.app",
 	"build": {
-		"beforeDevCommand": "bun run dev",
+		"beforeDevCommand": "quasar-cli dev",
 		"devUrl": "http://localhost:1420",
-		"beforeBuildCommand": "bun run build",
-		"frontendDist": "../dist"
+		"beforeBuildCommand": "quasar-cli build",
+		"frontendDist": "../src-quasar/dist/spa"
 	},
 	"app": {
 		"windows": [

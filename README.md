@@ -32,3 +32,10 @@ cd dirt-loader
 ```sh
 devenv shell
 ```
+
+#### Starting Application for Development
+
+For Desktop development, run:
+```sh
+devenv up
+```

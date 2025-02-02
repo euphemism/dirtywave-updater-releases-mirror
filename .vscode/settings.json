@@ -19,6 +19,10 @@
 		"editor.defaultFormatter": "biomejs.biome"
 	},
 
+	"[vue]": {
+		"editor.defaultFormatter": "Vue.volar"
+	},
+
 	"editor.formatOnSave": true,
 
 	"nix.enableLanguageServer": true,

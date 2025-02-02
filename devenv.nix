@@ -5,6 +5,7 @@
 
   env = {
     BIOME_BINARY = "${pkgs.biome}/bin/biome";
+    QUASAR_ROOT = "${config.env.DEVENV_ROOT}/src-quasar";
     TAURI_ROOT = "${config.env.DEVENV_ROOT}/src-tauri";
   };
 
@@ -17,6 +18,8 @@
 
         install.enable = true;
       };
+
+      directory = "${config.env.QUASAR_ROOT}";
     };
 
     rust = {
@@ -49,11 +52,27 @@
         extraPackages = [ pkgs.openssl ];
       };
 
-      commitizen.enable = true;
+      commitizen = {
+        enable = true;
+        fail_fast = true;
+      };
+
+      eslint = {
+        after = [ "biome" ];
+        args = [ "--debug" "-c" "${config.env.QUASAR_ROOT}/eslint.config.js" ];
+        enable = true;
+        fail_fast = true;
+        files = "\\.(ts|js|mjs|cjs|vue)$";
+
+        settings = {
+          binPath = "${config.env.QUASAR_ROOT}/node_modules/.bin/eslint";
+        };
+      };
 
       rustfmt = {
         after = [ "biome" ];
         enable = true;
+        fail_fast = true;
       };
     };
 
@@ -66,6 +85,34 @@
     pkgs.wasm-pack
   ] ++ lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk;
     [ frameworks.Security ]); # TODO: Look into why this is needed
+
+  processes.tauri-dev.exec = "tauri-cli dev";
+
+  scripts = {
+    backend.exec = ''
+      cd ${config.env.TAURI_ROOT}
+
+      exec "$@"
+    '';
+
+    frontend.exec = ''
+      cd ${config.env.QUASAR_ROOT}
+
+      exec "$@"
+    '';
+
+    quasar-cli.exec = ''
+      cd ${config.env.QUASAR_ROOT}
+
+      bunx @quasar/cli "$@"
+    '';
+
+    tauri-cli.exec = ''
+      cd ${config.env.TAURI_ROOT}
+
+      cargo-tauri "$@"
+    '';
+  };
 
   # See full reference at https://devenv.sh/reference/options/
 }
