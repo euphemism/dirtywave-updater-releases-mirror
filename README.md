@@ -16,6 +16,10 @@ We recommend using [Visual Studio Code](https://code.visualstudio.com/) as your 
 
 - [devenv](https://devenv.sh/)
 
+##### Recommended
+
+- [direnv](https://direnv.net/) - Automatic environment activation (No need to invoke `devenv shell`)
+
 #### Clone the Repository
 
 ```sh
