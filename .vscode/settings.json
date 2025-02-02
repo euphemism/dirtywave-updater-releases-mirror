@@ -1,11 +1,14 @@
 {
-  "nix.enableLanguageServer": true,
-  "nix.serverPath": "nixd",
-  "nix.serverSettings": {
-    "nixd": {
-      "formatting": {
-        "command": ["nixfmt"]
-      }
-    }
-  }
+	"editor.defaultFormatter": "biomejs.biome",
+	"editor.formatOnSave": true,
+
+	"nix.enableLanguageServer": true,
+	"nix.serverPath": "nixd",
+	"nix.serverSettings": {
+		"nixd": {
+			"formatting": {
+				"command": ["nixfmt"]
+			}
+		}
+	}
 }

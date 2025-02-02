@@ -1,7 +1,8 @@
 {
-  "recommendations": [
-    "jnoortheen.nix-ide",
-    "redhat.vscode-yaml",
-    "rust-lang.rust-analyzer"
-  ]
+	"recommendations": [
+		"biomejs.biome",
+		"jnoortheen.nix-ide",
+		"redhat.vscode-yaml",
+		"rust-lang.rust-analyzer"
+	]
 }

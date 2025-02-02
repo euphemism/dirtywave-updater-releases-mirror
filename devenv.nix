@@ -3,20 +3,38 @@
 {
   cachix.enable = false;
 
-  languages.rust = {
-    enable = true;
+  env.BIOME_BINARY = "${pkgs.biome}/bin/biome";
 
-    # https://devenv.sh/reference/options/#languagesrustchannel
-    channel = "nightly";
+  languages = {
+    javascript = {
+      enable = true;
 
-    targets = [ "aarch64-apple-darwin" "wasm32-unknown-unknown" ];
+      bun = {
+        enable = true;
 
-    components =
-      [ "rustc" "cargo" "clippy" "rustfmt" "rust-analyzer" "rust-std" ];
+        install.enable = true;
+      };
+    };
+
+    rust = {
+      enable = true;
+
+      # https://devenv.sh/reference/options/#languagesrustchannel
+      channel = "nightly";
+
+      targets = [ "aarch64-apple-darwin" "wasm32-unknown-unknown" ];
+
+      components =
+        [ "rustc" "cargo" "clippy" "rustfmt" "rust-analyzer" "rust-std" ];
+    };
+
+    typescript.enable = true;
   };
 
   git-hooks = {
     hooks = {
+      biome = { enable = true; };
+
       clippy = {
         enable = true;
         settings.offline = lib.mkDefault false;
