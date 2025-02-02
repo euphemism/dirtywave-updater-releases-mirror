@@ -13,7 +13,7 @@ We recommend using [Visual Studio Code](https://code.visualstudio.com/) as your 
 ### Clone the Repository
 
 ```sh
-git clone https://github.com/yourusername/dirt-loader.git
+git clone git@github.com:euphemism/dirt-loader.git
 cd dirt-loader
 ```
 
