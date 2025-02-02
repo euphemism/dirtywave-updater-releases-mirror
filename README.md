@@ -1,23 +1,29 @@
 # Dirt Loader
 
-## Development Environment Setup
+## Description
+
+Firmware upload tool for the Dirtywave M8 Tracker.
+
+## Contributing
+
+### Development Environment Setup
 
 Follow these steps to set up your development environment:
 
 We recommend using [Visual Studio Code](https://code.visualstudio.com/) as your editor for this project. To ensure that you have the best development experience, please install the workspace-recommended extensions.
 
-### Prerequisites
+#### Prerequisites
 
 - [devenv](https://devenv.sh/)
 
-### Clone the Repository
+#### Clone the Repository
 
 ```sh
 git clone git@github.com:euphemism/dirt-loader.git
 cd dirt-loader
 ```
 
-### Enter the Development Environment
+#### Enter the Development Environment
 
 ```sh
 devenv shell
