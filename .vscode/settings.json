@@ -7,10 +7,6 @@
 		"editor.defaultFormatter": "biomejs.biome"
 	},
 
-	"[jsonc]": {
-		"editor.defaultFormatter": "biomejs.biome"
-	},
-
 	"[rust]": {
 		"editor.defaultFormatter": "rust-lang.rust-analyzer"
 	},
@@ -26,12 +22,17 @@
 	"editor.formatOnSave": true,
 
 	"nix.enableLanguageServer": true,
+	"nix.formatterPath": "nixfmt",
 	"nix.serverPath": "nixd",
-	"nix.serverSettings": {
-		"nixd": {
-			"formatting": {
-				"command": ["nixfmt"]
-			}
-		}
-	}
+
+	"rust-analyzer.server.path": "rust-analyzer",
+	"search.exclude": {
+		".devenv": true,
+		".direnv": true,
+		".quasar": true,
+	    "gen": true,
+		"node_modules": true,
+		"nix": true,
+		"target": true
+	},
 }

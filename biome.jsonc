@@ -3,11 +3,11 @@
 	"files": {
 		"ignoreUnknown": false,
 		"ignore": [
-			"dist/*",
-			"src-capacitor/*",
-			"src-cordova/*",
-			".quasar/*",
-			"quasar.config.*.temporary.compiled*"
+			"src-quasar/dist/*",
+			"src-quasar/src-capacitor/*",
+			"src-quasar/src-cordova/*",
+			"src-quasar/.quasar/*",
+			"src-quasar/quasar.config.*.temporary.compiled*"
 		]
 	},
 	"formatter": {

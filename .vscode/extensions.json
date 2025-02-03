@@ -1,6 +1,7 @@
 {
 	"recommendations": [
 		"biomejs.biome",
+		"dbaeumer.vscode-eslint",
 		"jnoortheen.nix-ide",
 		"redhat.vscode-yaml",
 		"rust-lang.rust-analyzer",

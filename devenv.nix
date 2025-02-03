@@ -5,6 +5,7 @@
 
   env = {
     BIOME_BINARY = "${pkgs.biome}/bin/biome";
+    CARGO_TARGET_DIR = "${config.env.TAURI_ROOT}/target";
     QUASAR_ROOT = "${config.env.DEVENV_ROOT}/src-quasar";
     TAURI_ROOT = "${config.env.DEVENV_ROOT}/src-tauri";
   };
@@ -26,12 +27,19 @@
       enable = true;
 
       # https://devenv.sh/reference/options/#languagesrustchannel
-      channel = "nightly";
+      channel = "stable";
 
       targets = [ "aarch64-apple-darwin" "wasm32-unknown-unknown" ];
 
-      components =
-        [ "rustc" "cargo" "clippy" "rustfmt" "rust-analyzer" "rust-std" ];
+      components = [
+        "rustc"
+        "cargo"
+        "clippy"
+        "rustfmt"
+        "rust-analyzer"
+        "rust-src"
+        "rust-std"
+      ];
     };
 
     typescript.enable = true;
@@ -41,25 +49,27 @@
     hooks = {
       biome = {
         after = [ "commitizen" ];
+        args = [ "--no-errors-on-unmatched" ];
         enable = true;
         fail_fast = true;
       };
 
       clippy = {
-        after = [ "biome" "rustfmt" ];
+        after = [ "rustfmt" ];
         enable = true;
         settings.offline = lib.mkDefault false;
         extraPackages = [ pkgs.openssl ];
       };
 
       commitizen = {
+        before = [ "biome" ];
         enable = true;
         fail_fast = true;
       };
 
       eslint = {
         after = [ "biome" ];
-        args = [ "--debug" "-c" "${config.env.QUASAR_ROOT}/eslint.config.js" ];
+        args = [ "-c" "${config.env.QUASAR_ROOT}/eslint.config.js" ];
         enable = true;
         fail_fast = true;
         files = "\\.(ts|js|mjs|cjs|vue)$";
@@ -70,7 +80,7 @@
       };
 
       rustfmt = {
-        after = [ "biome" ];
+        after = [ "eslint" ];
         enable = true;
         fail_fast = true;
       };
@@ -112,6 +122,17 @@
 
       cargo-tauri "$@"
     '';
+  };
+
+  tasks = {
+    "dirt-loader:install-cargo-tauri" = {
+      exec = ''cargo install tauri-cli --version "^2.0.0" --locked'';
+
+      status =
+        "test -f ${config.env.DEVENV_STATE}/cargo-install/bin/cargo-tauri";
+    };
+
+    "devenv:enterShell".after = [ "dirt-loader:install-cargo-tauri" ];
   };
 
   # See full reference at https://devenv.sh/reference/options/
