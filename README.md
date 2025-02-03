@@ -37,5 +37,5 @@ devenv shell
 
 For Desktop development, run:
 ```sh
-devenv up
+tauri-cli dev
 ```
