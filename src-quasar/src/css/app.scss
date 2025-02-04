@@ -1,1 +1,24 @@
-// app global css in SCSS form
+@font-face {
+    font-family: stealth-57;
+    src: url(./fonts/stealth57.ttf);
+}
+
+:root {
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+body {
+    font-family: Montserrat, sans-serif;
+}
+
+ul {
+    list-style: none;
+    margin-block-start: 0;
+    margin-block-end: 0;
+    padding-inline-start: 0;
+}
+
+.stealth-57-font {
+    font-family: 'stealth-57';
+}
