@@ -1,102 +1,66 @@
 <template>
   <q-layout view="lHh Lpr lFf">
-    <q-header elevated>
-      <q-toolbar>
-        <q-btn
-          flat
-          dense
-          round
-          icon="menu"
-          aria-label="Menu"
-          @click="toggleLeftDrawer"
-        />
+    <q-header class="bg-dark non-selectable q-pa-none text-primary">
 
-        <q-toolbar-title>
-          Quasar App
-        </q-toolbar-title>
+      <q-toolbar class="q-pa-none">
+        <div class=" fit items-stretch row">
+          <div class="col-auto">
+            <q-btn @click="toggleLeftDrawer" aria-label="Menu" icon="menu" dense flat class="q-px-xs" />
+          </div>
 
-        <div>Quasar v{{ $q.version }}</div>
+          <div class="col items-center relative-position row">
+            <div class="col-auto no-wrap q-ml-sm">
+              <q-toolbar-title class="stealth-57-font text-subtitle2">
+                Dirt Loader
+              </q-toolbar-title>
+            </div>
+
+            <div data-tauri-drag-region class="absolute-full" />
+          </div>
+
+          <div class="column col-auto items-center justify-center">
+            <q-btn @click="closeWindow" label="X" ref="closeButton" text-color="primary" dense flat
+              class="q-px-md stealth-57-font" />
+          </div>
+        </div>
       </q-toolbar>
+
     </q-header>
 
-    <q-drawer
-      v-model="leftDrawerOpen"
-      show-if-above
-      bordered
-    >
-      <q-list>
-        <q-item-label
-          header
-        >
-          Essential Links
-        </q-item-label>
-
-        <EssentialLink
-          v-for="link in linksList"
-          :key="link.title"
-          v-bind="link"
-        />
-      </q-list>
-    </q-drawer>
+    <q-drawer v-model="leftDrawerOpen" show-if-above bordered />
 
     <q-page-container>
       <router-view />
     </q-page-container>
+
+    <div class="absolute-full frame" />
   </q-layout>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import EssentialLink, { type EssentialLinkProps } from 'components/EssentialLink.vue';
-
-const linksList: EssentialLinkProps[] = [
-  {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev'
-  },
-  {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework'
-  },
-  {
-    title: 'Discord Chat Channel',
-    caption: 'chat.quasar.dev',
-    icon: 'chat',
-    link: 'https://chat.quasar.dev'
-  },
-  {
-    title: 'Forum',
-    caption: 'forum.quasar.dev',
-    icon: 'record_voice_over',
-    link: 'https://forum.quasar.dev'
-  },
-  {
-    title: 'Twitter',
-    caption: '@quasarframework',
-    icon: 'rss_feed',
-    link: 'https://twitter.quasar.dev'
-  },
-  {
-    title: 'Facebook',
-    caption: '@QuasarFramework',
-    icon: 'public',
-    link: 'https://facebook.quasar.dev'
-  },
-  {
-    title: 'Quasar Awesome',
-    caption: 'Community Quasar projects',
-    icon: 'favorite',
-    link: 'https://awesome.quasar.dev'
-  }
-];
+import type { Window } from '@tauri-apps/api/window';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { onMounted, ref } from 'vue';
 
 const leftDrawerOpen = ref(false);
 
-function toggleLeftDrawer () {
+const appWindow = ref<Window | null>(null);
+
+onMounted(() => {
+  appWindow.value = getCurrentWindow();
+})
+
+function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value;
 }
+
+const closeWindow = () => appWindow.value?.close();
 </script>
+
+<style lang="scss" scoped>
+.frame {
+  border: 1px solid var(--q-primary);
+  pointer-events: none;
+  z-index: 3000;
+}
+</style>

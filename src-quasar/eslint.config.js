@@ -14,7 +14,7 @@ export default [
 		 *
 		 * ESLint requires "ignores" key to be the only one in this object
 		 */
-		ignores: ['src-tauri/**/*'],
+		ignores: ['.devenv/**/*', '.direnv/**/*', 'node_modules/**/*', 'src-tauri/**/*'],
 	},
 
 	...pluginQuasar.configs.recommended(),

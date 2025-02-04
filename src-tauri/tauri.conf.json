@@ -12,12 +12,24 @@
 	"app": {
 		"windows": [
 			{
-				"title": "dirt-loader",
-				"width": 800,
-				"height": 600
+				"decorations": false,
+				"dragDropEnabled": false,
+				"hiddenTitle": true,
+				"title": "Dirt Loader"
 			}
 		],
 		"security": {
+			"capabilities": [
+				{
+					"identifier": "draggable-window",
+					"windows": ["*"],
+					"permissions": [
+						"core:window:default",
+						"core:window:allow-close",
+						"core:window:allow-start-dragging"
+					]
+				}
+			],
 			"csp": null
 		}
 	},
