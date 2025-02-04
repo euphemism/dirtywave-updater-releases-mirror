@@ -16,6 +16,8 @@
 	"dependencies": {
 		"@quasar/extras": "^1.16.4",
 		"@tauri-apps/api": "^2.2.0",
+		"@vueuse/components": "^12.5.0",
+		"@vueuse/core": "^12.5.0",
 		"pinia": "^2.0.11",
 		"quasar": "^2.16.0",
 		"vue": "^3.4.18",
