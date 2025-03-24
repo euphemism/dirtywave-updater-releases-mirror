@@ -1,12 +1,26 @@
-{ config, pkgs, lib, ... }:
+{ config, inputs, lib, pkgs, ... }:
 
-{
+let
+  pkgs-unstable =
+    import inputs.nixpkgs-unstable { system = pkgs.stdenv.system; };
+in {
   cachix.enable = false;
 
+  # Nix can't (or I can't) expand the $HOME variable during evaluation,
+  # so the environment variable ends up containing the literal $HOME
+  # string instead of the expanded/resolved value of the user's home directory.
+  # Because of this, we're setting the variable from the context of the shell.
+  enterShell = ''
+    export SOPS_AGE_KEY_FILE=$HOME/.config/age/identities.txt
+  '';
+
   env = {
+    AGE_ROOT_PUBLIC_KEY =
+      "age1zwls895rxugu2kf6f4ys6pgl36e3k7dx4djt3dl9ckdmcgg3naaqs9qjae";
     BIOME_BINARY = "${pkgs.biome}/bin/biome";
     CARGO_TARGET_DIR = "${config.env.TAURI_ROOT}/target";
     QUASAR_ROOT = "${config.env.DEVENV_ROOT}/src-quasar";
+    ROOT_KEY_FILE = "./encrypted/root-key.sops.json";
     TAURI_ROOT = "${config.env.DEVENV_ROOT}/src-tauri";
   };
 
@@ -90,6 +104,7 @@
   };
 
   packages = [
+    pkgs.age
     pkgs.binaryen # use a newer version of wasm-opt
     pkgs.nodejs
     pkgs.wasm-pack
@@ -99,40 +114,122 @@
   processes.tauri-dev.exec = "tauri-cli dev";
 
   scripts = {
-    backend.exec = ''
-      cd ${config.env.TAURI_ROOT}
+    age-generate-identity.exec = ''
+      AGE_DIR="$HOME/.config/age"
+      IDENTITIES_FILE="$AGE_DIR/identities.txt"
 
-      exec "$@"
+      if [ ! -d "$AGE_DIR" ]; then
+          echo "- Creating age config directory at $AGE_DIR" | ${pkgs.gum}/bin/gum format
+
+          mkdir -p "$AGE_DIR"
+      fi
+
+      echo "- Generating a new age identity" | ${pkgs.gum}/bin/gum format
+
+      NEW_IDENTITY=$(age-keygen 2>/dev/null)
+
+      # NEW_IDENTITY=$(age-keygen 2>/dev/null)
+
+      # Check if the identities file exists
+      if [ ! -f "$IDENTITIES_FILE" ]; then
+          echo "- Creating identities file at $IDENTITIES_FILE" | ${pkgs.gum}/bin/gum format
+
+          echo "$NEW_IDENTITY" > "$IDENTITIES_FILE"
+      else
+          echo "- Appending new identity to $IDENTITIES_FILE" | ${pkgs.gum}/bin/gum format
+
+          echo "$NEW_IDENTITY" >> "$IDENTITIES_FILE"
+      fi
+
+      echo "- Identity generation complete." | ${pkgs.gum}/bin/gum format
+
+      # Extract the public key from the new identity and print it
+      PUBLIC_KEY=$(echo "$NEW_IDENTITY" | grep "^# public key:" | awk '{print $NF}')
+
+      NEW_PUBLIC_KEY_LABEL=$(${pkgs.gum}/bin/gum style --foreground 212 "New Public Key:")
+      PUBLIC_KEY_CONTENT=$(${pkgs.gum}/bin/gum style --foreground white "$PUBLIC_KEY")
+      KEY_BANNER_CONTENT=$(${pkgs.gum}/bin/gum join --align center --vertical "$NEW_PUBLIC_KEY_LABEL" "" "$PUBLIC_KEY_CONTENT")
+
+      ${pkgs.gum}/bin/gum style --border normal --border-foreground 45 --padding "1 2" "$KEY_BANNER_CONTENT"
+    '';
+
+    backend.exec = ''
+      (cd ${config.env.TAURI_ROOT} && exec "$@")
     '';
 
     frontend.exec = ''
-      cd ${config.env.QUASAR_ROOT}
-
-      exec "$@"
+      (cd ${config.env.QUASAR_ROOT} && exec "$@")
     '';
 
     quasar-cli.exec = ''
-      cd ${config.env.QUASAR_ROOT}
+      (cd ${config.env.QUASAR_ROOT} && bunx @quasar/cli "$@")
+    '';
 
-      bunx @quasar/cli "$@"
+    # This is a wrapper around SOPS to cleanly work with an envelope encryption approach.
+    #
+    # There is a root key/identity/age recipient that can decrypt the Tauri updater keys file
+    # (./encrypted/tauri-updater.sops.json). _That_ recipient is encrypted via SOPS in the
+    # ./encrypted/root-key.sops.json file; the recipients allowed to decrypt the root key are
+    # able to be updated out-of-band, without needing to touch or modify anything encrypted by
+    # the root recipient. In order to read and operate on data encrypted by the root recipient
+    # we must first decrypt the file containing the root recipient's private key, and then use
+    # that key to decrypt the data.
+    #
+    # This wrapper makes that very simple - it detects when the root key was used to encrypt
+    # the file being operated upon, and then acquires/configures the root key for use before
+    # actually invoking SOPS on the file.
+    sops.exec = let sops = "${pkgs-unstable.sops}/bin/sops";
+    in ''
+      # If no arguments are passed, just show SOPS help.
+      if [ "$#" -eq 0 ]; then
+        exec ${sops} --help
+      fi
+
+      # Assume that the target file is the last argument (if it exists).
+      TARGET="''${@: -1}"
+
+      if [ ! -f "$TARGET" ]; then
+        # If the last argument is not a file, assume SOPS will read from STDIN or the user is misusing the wrapper.
+        exec ${sops} "$@"
+      fi
+
+      # Check if the target file contains SOPS Age metadata.
+      if ! jq -e '.sops.age[].recipient' "$TARGET" >/dev/null 2>&1; then
+        # If it doesn't have SOPS Age recipient, simply pass through to sops.
+        exec ${sops} "$@"
+      fi
+
+      # Check if any of the Age recipients match the designated root key fingerprint.
+      if jq -r '.sops.age[].recipient' "$TARGET" | grep -qF "$AGE_ROOT_PUBLIC_KEY"; then
+        # Decrypt the root key (ephemerally) and invoke SOPS with it for the target file.
+        ROOT_KEY="$(${sops} decrypt --extract '["dirtywaveUpdaterRootPrivateKey"]' "$ROOT_KEY_FILE")"
+
+        # Use env to pass the key silently for just the current command.
+        exec env SOPS_AGE_KEY="$ROOT_KEY" ${sops} "$@"
+      else
+        # Otherwise, just forward all arguments to sops.
+        exec ${sops} "$@"
+      fi
     '';
 
     tauri-cli.exec = ''
-      cd ${config.env.TAURI_ROOT}
-
-      cargo-tauri "$@"
+      (cd ${config.env.TAURI_ROOT} && cargo-tauri "$@")
     '';
   };
 
   tasks = {
-    "dirt-loader:install-cargo-tauri" = {
-      exec = ''cargo install tauri-cli --version "^2.0.0" --locked'';
+    "dirtywave-updater:bootstrap:install-cargo-tauri" = {
+      after = [ "devenv:enterShell" ];
+
+      exec = ''
+        echo "Tauri CLI not installed; installing"
+
+        cargo install tauri-cli --version "^2.0.0" --locked
+      '';
 
       status =
         "test -f ${config.env.DEVENV_STATE}/cargo-install/bin/cargo-tauri";
     };
-
-    "devenv:enterShell".after = [ "dirt-loader:install-cargo-tauri" ];
   };
 
   # See full reference at https://devenv.sh/reference/options/

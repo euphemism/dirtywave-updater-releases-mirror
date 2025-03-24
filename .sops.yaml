@@ -1,0 +1,8 @@
+# creation rules are evaluated sequentially, the first match wins
+creation_rules:
+  - path_regex: encrypted\/root-key\.sops\.json$
+    age: >-
+      age1p09ql55eg6ez5s8cdpsm4f0zlcc4y2lsjy5acsjqwmhethfvvuuqed76mh
+  - path_regex: encrypted\/.*\.sops\.json$
+    age: >-
+      age1zwls895rxugu2kf6f4ys6pgl36e3k7dx4djt3dl9ckdmcgg3naaqs9qjae
