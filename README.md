@@ -33,6 +33,9 @@ cd dirt-loader
 
 #### Enter the Development Environment
 
+The first time the environment is loaded, it will take some time to be initialized due to pulling
+down dependencies and doing initial building and preparations.
+
 ##### With direnv
 
 The environment will automatically activate when entering the repository directory tree.
