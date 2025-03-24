@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    dirt_loader_lib::run()
+    dirtywave_updater_lib::run()
 }

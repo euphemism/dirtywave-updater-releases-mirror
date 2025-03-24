@@ -251,7 +251,7 @@ export default defineConfig((ctx) => {
 			builder: {
 				// https://www.electron.build/configuration/configuration
 
-				appId: 'dirt-loader',
+				appId: 'dirtywave-updater',
 			},
 		},
 

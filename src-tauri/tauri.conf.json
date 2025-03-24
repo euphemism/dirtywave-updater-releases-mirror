@@ -1,8 +1,8 @@
 {
 	"$schema": "https://schema.tauri.app/config/2",
-	"productName": "dirt-loader",
-	"version": "0.1.0",
-	"identifier": "com.dirt-loader.app",
+	"productName": "dirtywave-updater",
+	"version": "0.1.1",
+	"identifier": "com.dirtywave.updater",
 	"build": {
 		"beforeDevCommand": "quasar-cli dev",
 		"devUrl": "http://localhost:1420",
@@ -15,7 +15,7 @@
 				"decorations": false,
 				"dragDropEnabled": false,
 				"hiddenTitle": true,
-				"title": "Dirt Loader"
+				"title": "Dirtywave Updater"
 			}
 		],
 		"security": {

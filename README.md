@@ -1,4 +1,4 @@
-# Dirt Loader
+# Dirtywave Updater
 
 ## Description
 
@@ -27,8 +27,8 @@ Run `./bootstrap-environment.sh` to get the base tooling in place for automatic 
 #### Clone the Repository
 
 ```sh
-git clone git@github.com:euphemism/dirt-loader.git
-cd dirt-loader
+git clone git@github.com:Dirtywave/Updater.git dirtywave-updater
+cd dirtywave-updater
 ```
 
 #### Enter the Development Environment
