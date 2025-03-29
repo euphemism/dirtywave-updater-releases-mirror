@@ -4,9 +4,7 @@
 	"version": "0.1.1",
 	"identifier": "com.dirtywave.updater",
 	"build": {
-		"beforeDevCommand": "quasar-cli dev",
 		"devUrl": "http://localhost:1420",
-		"beforeBuildCommand": "quasar-cli build",
 		"frontendDist": "../src-quasar/dist/spa"
 	},
 	"app": {
