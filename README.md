@@ -12,7 +12,7 @@ Follow these steps to set up your development environment:
 
 We recommend using [Visual Studio Code](https://code.visualstudio.com/) as your editor for this project. To ensure that you have the best development experience, please install the workspace-recommended extensions.
 
-The below tools are used for the development environment, and a script is provided to install and configure everything needed:
+The tools below are used for the development environment; a script is provided to install and configure everything needed:
 
 Run `./bootstrap-environment.sh` to get the base tooling in place for automatic environment setup.
 
