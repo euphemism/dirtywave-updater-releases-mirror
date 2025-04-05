@@ -105,7 +105,9 @@ in {
 
   packages = [
     pkgs.age
-    pkgs.binaryen # use a newer version of wasm-opt
+    # Compiler infrastructure and toolchain library for WebAssembly, in C++; use a newer version of wasm-opt
+    pkgs.binaryen
+    pkgs.cargo-tauri
     pkgs.nodejs
     pkgs.wasm-pack
   ] ++ lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk;
@@ -180,35 +182,62 @@ in {
     # actually invoking SOPS on the file.
     sops.exec = let sops = "${pkgs-unstable.sops}/bin/sops";
     in ''
-      # If no arguments are passed, just show SOPS help.
+      # If no arguments are passed, show SOPS help.
       if [ "$#" -eq 0 ]; then
         exec ${sops} --help
       fi
 
-      # Assume that the target file is the last argument (if it exists).
-      TARGET="''${@: -1}"
+      # Determine whether we're in exec-env mode or normal mode.
+      if [ "$1" = "exec-env" ]; then
+        if [ "$#" -lt 3 ]; then
+          exit 1
+        fi
+
+        MODE="exec-env"
+
+        TARGET="$2"
+        shift 2
+        COMMAND=("$@")
+      else
+        MODE="normal"
+        # In normal mode the last argument is the target file,
+        # and the preceding arguments is the SOPS command.
+        TARGET="''${!#}"
+        COMMAND=("''${@:1:$#-1}")
+      fi
 
       if [ ! -f "$TARGET" ]; then
-        # If the last argument is not a file, assume SOPS will read from STDIN or the user is misusing the wrapper.
-        exec ${sops} "$@"
+        exit 1
       fi
 
-      # Check if the target file contains SOPS Age metadata.
-      if ! jq -e '.sops.age[].recipient' "$TARGET" >/dev/null 2>&1; then
-        # If it doesn't have SOPS Age recipient, simply pass through to sops.
-        exec ${sops} "$@"
+      # Check if the target file contains any SOPS Age metadata.
+      if ! ${pkgs.jq}/bin/jq -e '.sops.age[].recipient' "$TARGET" >/dev/null 2>&1; then
+        if [ "$MODE" = "exec-env" ]; then
+          exec ${sops} exec-env "$TARGET" -- "''${COMMAND[@]}"
+        else
+          exec ${sops} "''${COMMAND[@]}" "$TARGET"
+        fi
       fi
 
-      # Check if any of the Age recipients match the designated root key fingerprint.
-      if jq -r '.sops.age[].recipient' "$TARGET" | grep -qF "$AGE_ROOT_PUBLIC_KEY"; then
-        # Decrypt the root key (ephemerally) and invoke SOPS with it for the target file.
-        ROOT_KEY="$(${sops} decrypt --extract '["dirtywaveUpdaterRootPrivateKey"]' "$ROOT_KEY_FILE")"
-
-        # Use env to pass the key silently for just the current command.
-        exec env SOPS_AGE_KEY="$ROOT_KEY" ${sops} "$@"
+      # The target file has Age metadata; now check specifically for the root key recipient.
+      if ${pkgs.jq}/bin/jq -r '.sops.age[].recipient' "$TARGET" | grep -qF "$AGE_ROOT_PUBLIC_KEY"; then
+        if [ "$MODE" = "exec-env" ]; then
+          exec env SOPS_AGE_KEY="$( \
+            ${sops} decrypt --extract '["dirtywaveUpdaterRootPrivateKey"]' "$ROOT_KEY_FILE" \
+          )" \
+          ${sops} exec-env "$TARGET" -- "''${COMMAND[@]}"
+        else
+          exec env SOPS_AGE_KEY="$( \
+            ${sops} decrypt --extract '["dirtywaveUpdaterRootPrivateKey"]' "$ROOT_KEY_FILE" \
+          )" \
+          ${sops} "''${COMMAND[@]}" "$TARGET"
+        fi
       else
-        # Otherwise, just forward all arguments to sops.
-        exec ${sops} "$@"
+        if [ "$MODE" = "exec-env" ]; then
+          exec ${sops} exec-env "$TARGET" -- "''${COMMAND[@]}"
+        else
+          exec ${sops} "''${COMMAND[@]}" "$TARGET"
+        fi
       fi
     '';
 
