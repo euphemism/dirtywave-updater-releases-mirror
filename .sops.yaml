@@ -2,6 +2,7 @@
 creation_rules:
   - path_regex: encrypted\/root-key\.sops\.json$
     age: >-
+      age1a53lg7xwe6wequa8pl9f39anfdqpyvpk8qjwets3uwk397sf0gtqydag0x,
       age1p09ql55eg6ez5s8cdpsm4f0zlcc4y2lsjy5acsjqwmhethfvvuuqed76mh
   - path_regex: encrypted\/.*\.sops\.json$
     age: >-
