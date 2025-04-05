@@ -247,18 +247,17 @@ in {
   };
 
   tasks = {
-    "dirtywave-updater:bootstrap:install-cargo-tauri" = {
-      after = [ "devenv:enterShell" ];
+    "dirtywave-updater:bootstrap:git-config-sopsdiffer" = {
+      before = [ "devenv:enterShell" ];
 
-      exec = ''
-        echo "Tauri CLI not installed; installing"
+      exec = ''git config --local diff.sopsdiffer.textconv "sops decrypt"'';
 
-        cargo install tauri-cli --version "^2.0.0" --locked
+      status = ''
+        [ "$(git config --local diff.sopsdiffer.textconv)" = "sops decrypt" ] && exit 0 || exit 1
       '';
-
-      status =
-        "test -f ${config.env.DEVENV_STATE}/cargo-install/bin/cargo-tauri";
     };
+
+    "dirtywave-updater:build:aarch64" = { exec = "\n"; };
   };
 
   # See full reference at https://devenv.sh/reference/options/
