@@ -3,6 +3,7 @@
 	"files": {
 		"ignoreUnknown": false,
 		"ignore": [
+			"encrypted/*",
 			"src-quasar/dist/*",
 			"src-quasar/src-capacitor/*",
 			"src-quasar/src-cordova/*",
