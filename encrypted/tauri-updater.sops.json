@@ -1,6 +1,6 @@
 {
-	"tauriSigningPrivateKey": "ENC[AES256_GCM,data:PYEIQiXxTZEzNo/QowLs4aw7lch1ul5PHFxoe2AWAEB/svJC3ExZN1HhAlfJ2rPnbjPRcB14B+61MnbgEFYNGmXq+cevl3+NGM0zG5GtFTF+YVIj6zyuGlJS27zdYxnA9U6kIhe0Thd2OhKINcbYOzIk1tYV4zoSlwvkrmBxW8YgWy7g0xmuJ0oguqm1yeSW1E8KfDNBueNkwsMH7mFjroiLtpRJ7DuzrtZokh8z3pwr5jRC4qogMPmWijDLFmxkwUJ0Jvw4kIln+ZTtxqempTWKbNZ/wW5Y/maOqO36+XntZqVD9ckwpM/7pEmSYCorWS1BrlQfzcONYkYUkXPlV5mbJyDxg9+sXz+jlZGbYaQOWw2uIUvkVcCVg6NVD8FniI9ZcGlmIvBYaa+WN7KEv2ikh3JtiYh4lw74rpksHfOCDp3njomF5rjGiwyllple43fnkiF+3V/iEbg0,iv:vHe1YqUubJ3Gz8WyZMkuKsFbWMU9fxK75NkZTPz43Fs=,tag:GZ+kaoxDNpBUD54qsu1LMA==,type:str]",
-	"tauriSigningPrivateKeyPassword": "ENC[AES256_GCM,data:swvp70VtCODTNl9hBC3rRCw+V4uSs6bcTlNWWSV1mFi4hnjSiP4=,iv:QZZu5dcNDITDlAFK7o/zOCVBZX18iEaZpl99eECSkm8=,tag:CBmdEbZDWJ5xWXzVbN3U+A==,type:str]",
+	"TAURI_SIGNING_PRIVATE_KEY": "ENC[AES256_GCM,data:dwOf7BTeYHjqdm+iShZq6/+T3ouf3ivgWUuXQkbryVojUO2M6UGBmaLYT97Kknv62VAGvq5EXRseVKCs8pRNV+d0y17XybFXEmUvo1jjLxNQ+SuSal6cNL4RS1chJJToXpQ5o0jeXwJCHvEEg/DyZcuoT6owbpJuoEh0SvtBdqebv7lC9Wil1uP0nX5imFzfC2AFBKp55M7nhwGrhavTIKnEaH+w/jGJ0nknEWVdQHzu8YR0F5jCfz1V6Z2gL4vyRiVKjzqzudlI269AL+b6VMILxxODdgegYhCNxycAJByUXro+bIXAUmGehtt70ZnG44l7e22iUA9mQ8iT2Y52oAnKOOhyY2CL7DcTorCXWgdBAuyJwkLaSxOFtIWwDXDSCIPZc/2h8Y8WwjmVP4EbSkYCCZ2eqphGUxzH7CUXZwcMrO6SCK+aLJNVbop3DmUWMm3ygjmGBIXDqydx,iv:Pog01baESQMzpvajWaLBu+lO7BjjGuFKV5O1iMTo2/c=,tag:crFaqmoldWLSBhTI3OHFxA==,type:str]",
+	"TAURI_SIGNING_PRIVATE_KEY_PASSWORD": "ENC[AES256_GCM,data:KuDPYigduePX3jlDik35CHrSUg1WLFDhSMEkElS/rKPqcHoYGDY=,iv:tDbOy4OvaDcapCBO4vpoufMbqr/4CoNiESbosx/Ena0=,tag:rweFKYMAd4ky2s+gsnxeYg==,type:str]",
 	"sops": {
 		"kms": null,
 		"gcp_kms": null,
@@ -12,8 +12,8 @@
 				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBVN1ZpVG9Nb2hQTkdENDh5\naXB0bytza0pHWDlIN1U5NENVZElYRGxWK2prCmhCaHY4dzkzMjRCYW9BWCtQRjRa\nWVlzNjlZS3NCYVdNTTJ3Z01EVGY3amcKLS0tIHZiclZGdENJam0yS1h1cnFqL1Fo\na3RyMy82bTBmYnR4V0N3QmFRYnJIOGMKBftEGb/BxJBpiD+N/Tfng5nEf+gtSTYe\nCeWU7EX+aXtUYWzwDnF9qClDXBn4nTt/ueJXYkoSSWYiM686/UVoYQ==\n-----END AGE ENCRYPTED FILE-----\n"
 			}
 		],
-		"lastmodified": "2025-03-24T01:36:50Z",
-		"mac": "ENC[AES256_GCM,data:uSAv/WDehjJgIDVsYHl3Q5DGGLspoR1pKrc272zOQBvV9WeQydfxtZFXmgePhTyxzPRrDeaxmn6rE5AlhpL+Xw1u9csnTRKvRLNJncrWl0To86hx2WTw0MDxQi7Gbu1g0peA/7zg77eE39PMZsZPIgZ5OgS7rgrUII89UoeBKZs=,iv:Nw45Xv9wqtQ7a1k+HFcQjczq1kVZav4phBzG/5MHtsw=,tag:DWN7ORgho3gXby+h6xQmOg==,type:str]",
+		"lastmodified": "2025-04-05T08:52:38Z",
+		"mac": "ENC[AES256_GCM,data:bTZOdLwmjm/RTBBmZW4a2zHB67jYZjXemDNZ7fe4lIsOJbNNmNcuH9fEFQ0lZfQi0KRmp9Et1EosOppZTmuQu7KrihHETxEsF2vpxEMk7EUUY4ovbsP0UI6j8nxEqnj/X3D2uoaPXAmnbOyS6WBjyfII/s7oi4dqDUJJzXzx6+8=,iv:6/a6etBtPYMHndyGXH3IYGhGyUy2AN732xJjCwAwKEs=,tag:k8lyMgAn+Ld/0Eu7yPbaYQ==,type:str]",
 		"pgp": null,
 		"unencrypted_suffix": "_unencrypted",
 		"version": "3.9.4"
