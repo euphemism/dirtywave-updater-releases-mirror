@@ -1,0 +1,6 @@
+inputs:
+  bun2nix:
+    url: github:baileyluTCD/bun2nix
+    inputs:
+      nixpkgs:
+        follows: nixpkgs
