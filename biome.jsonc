@@ -1,14 +1,14 @@
 {
-	"$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.1.3/schema.json",
 	"files": {
 		"ignoreUnknown": false,
-		"ignore": [
-			"encrypted/*",
-			"src-quasar/dist/*",
-			"src-quasar/src-capacitor/*",
-			"src-quasar/src-cordova/*",
-			"src-quasar/.quasar/*",
-			"src-quasar/quasar.config.*.temporary.compiled*"
+		"includes": [
+			"!**/encrypted/*",
+			"!**/src-quasar/dist/*",
+			"!**/src-quasar/src-capacitor/*",
+			"!**/src-quasar/src-cordova/*",
+			"!**/src-quasar/.quasar/*",
+			"!**/src-quasar/quasar.config.*.temporary.compiled*"
 		]
 	},
 	"formatter": {

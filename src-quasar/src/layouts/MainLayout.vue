@@ -1,66 +1,143 @@
+<script setup lang="ts">
+import { computed, onMounted, ref, useTemplateRef } from 'vue';
+import { emitTo } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getVersion } from '@tauri-apps/api/app';
+import { storeToRefs } from 'pinia';
+import { useAuxiliaryViews } from 'src/composables/use-auxiliary-views';
+import { useInstallationStore } from 'src/stores/installation';
+import { useSerialPortInfoStore } from 'src/stores/serial-port-info';
+import DragDropIndicator from 'src/components/DragDropIndicator.vue';
+import FlashingSection from 'components/FlashingSection.vue';
+import LocalFileSelectItem from 'components/LocalFileSelectItem.vue';
+import SettingsPage from 'src/components/SettingsPage.vue';
+import TitleBar from 'components/TitleBar.vue';
+import TroubleshootingPage from 'src/components/TroubleshootingPage.vue';
+import TycmdLog from 'components/TycmdLog.vue';
+import type { Window } from '@tauri-apps/api/window';
+
+const { showSettings, showTroubleshooting, toggleSettings, toggleTroubleshooting } = useAuxiliaryViews();
+
+const { downloadStatus, uploadLog, uploadState } = storeToRefs(useInstallationStore());
+const isFlashing = computed(() => downloadStatus.value.state !== 'Stopped' || uploadState.value !== 'Stopped');
+
+const { selectedDevice } = storeToRefs(useSerialPortInfoStore());
+const appWindow = ref<Window | null>(null);
+const version = ref<string>('');
+
+onMounted(async () => {
+  appWindow.value = getCurrentWindow();
+
+  version.value = await getVersion();
+})
+
+const closeWindow = () => appWindow.value?.close();
+
+const uploadLogRef = useTemplateRef<InstanceType<typeof TycmdLog>>('uploadLogRef');
+
+const downloadFirmware = async () => {
+  uploadLog.value.push({ line: "Downloading...", state: uploadState.value })
+
+  if (selectedDevice.value) {
+    console.log((['emitting start-firmware-download with', JSON.stringify({ device: selectedDevice.value.ty_cmd_info.tag, }, null, 2)].join(' ')));
+    await emitTo('main', 'start-firmware-download', { device: selectedDevice.value.ty_cmd_info.tag, });
+  }
+}
+</script>
+
 <template>
-  <q-layout view="lHh Lpr lFf">
-    <q-header class="bg-dark non-selectable q-pa-none text-primary">
-
-      <q-toolbar class="q-pa-none">
-        <div class=" fit items-stretch row">
-          <div class="col-auto">
-            <q-btn @click="toggleLeftDrawer" aria-label="Menu" icon="menu" dense flat class="q-px-xs" />
-          </div>
-
-          <div class="col items-center relative-position row">
-            <div class="col-auto no-wrap q-ml-sm">
-              <q-toolbar-title class="stealth-57-font text-subtitle2">
-                Dirt Loader
-              </q-toolbar-title>
-            </div>
-
-            <div data-tauri-drag-region class="absolute-full" />
-          </div>
-
-          <div class="column col-auto items-center justify-center">
-            <q-btn @click="closeWindow" label="X" ref="closeButton" text-color="primary" dense flat
-              class="q-px-md stealth-57-font" />
-          </div>
-        </div>
-      </q-toolbar>
-
+  <q-layout view="lHh Lpr lFf" class="layout">
+    <q-header v-if="true" class="bg-dark non-selectable q-pa-none text-primary">
+      <TitleBar @close="closeWindow" @settings="toggleSettings" :version />
     </q-header>
 
-    <q-drawer v-model="leftDrawerOpen" show-if-above bordered />
-
-    <q-page-container>
+    <q-page-container class="overflow-visible">
       <router-view />
+
+      <!-- Hardcoded padding comes from needing to counteract the padding at top of .q-page-container that Quasar applies via style  -->
+      <div class="absolute-full no-pointer-events z-top" id="overlay" style="padding-top: 32px;" />
+
     </q-page-container>
 
-    <div class="absolute-full frame" />
+
+
+    <q-footer class="bg-transparent">
+      <LocalFileSelectItem />
+
+      <Transition enter-active-class="animated slideInUp" leave-active-class="animated slideOutDown">
+
+        <div v-if="showSettings || showTroubleshooting" class="fixed-full z-top" style="bottom: 32px; top: 32px">
+          <SettingsPage v-show="showSettings" @close="toggleSettings" />
+
+          <TroubleshootingPage v-show="showTroubleshooting" @close="toggleTroubleshooting" />
+        </div>
+      </Transition>
+
+      <Transition appear enter-active-class="animated slideInUp">
+        <q-expansion-item v-show="uploadLog.length > 0" @after-show="uploadLogRef?.scrollToBottom()"
+          :expand-separator="false" header-style="min-height: unset" icon="terminal" label="Flashing Log" dense
+          dense-toggle :class="[{ 'active': isFlashing }, 'bg-dark flashing-log-container']">
+          <template #header>
+            <div class="col-shrink full-width items-center justify-start q-py-none row text-caption text-dirty-white"
+              style="height: 1em">
+              <div class="full-width items-center q-gutter-x-xs row title">
+                <div class="full-width row q-gutter-x-xs">
+                  <div class="col-auto">Upload Log</div>
+
+                  <q-separator vertical class="q-my-xs" />
+
+                  <div class="col ellipsis commit-mono text-white" style="font-size: 0.8em">
+                    {{ uploadLog.at(-1)?.line }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <div ref="logArea" class="column tycmd-log-area wrap">
+            <div class="border invisible " />
+
+            <div class="col relative-position">
+              <TycmdLog ref="uploadLogRef" :entries="uploadLog" />
+            </div>
+
+            <div class="border invisible" />
+          </div>
+        </q-expansion-item>
+      </Transition>
+
+      <FlashingSection @flash="downloadFirmware" class="z-top" />
+    </q-footer>
+
+    <DragDropIndicator />
   </q-layout>
 </template>
 
-<script setup lang="ts">
-import type { Window } from '@tauri-apps/api/window';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { onMounted, ref } from 'vue';
+<style lang="scss" scoped>
+.flashing-log-container {
+  ::v-deep(.q-item) {
+    padding-left: 0;
+    padding-right: 0;
 
-const leftDrawerOpen = ref(false);
+    .q-icon {
+      font-size: 1.25em;
+    }
 
-const appWindow = ref<Window | null>(null);
+    .q-item__section--side {
+      padding-right: 0.5em;
+    }
+  }
 
-onMounted(() => {
-  appWindow.value = getCurrentWindow();
-})
-
-function toggleLeftDrawer() {
-  leftDrawerOpen.value = !leftDrawerOpen.value;
+  .title {
+    padding-left: 0.25em;
+  }
 }
 
-const closeWindow = () => appWindow.value?.close();
-</script>
-
-<style lang="scss" scoped>
-.frame {
-  border: 1px solid var(--q-primary);
-  pointer-events: none;
-  z-index: 3000;
+.tycmd-log-area {
+  --log-height: 8.25rem;
+  --log-width: 255px;
+  flex-basis: var(--log-height);
+  max-height: var(--log-height);
+  min-height: var(--log-height);
 }
 </style>

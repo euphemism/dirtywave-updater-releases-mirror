@@ -1,9 +1,17 @@
 { config, inputs, lib, pkgs, ... }:
 
 let
-  pkgs-unstable =
-    import inputs.nixpkgs-unstable { system = pkgs.stdenv.system; };
+  # Source of truth.
+  # Automatically propagates to src-tauri/Cargo.toml and src-quasar/package.json
+  application-version = "0.2.0";
+
+  pkgs-unstable = import inputs.nixpkgs-unstable {
+    overlays = [ inputs.rust-overlay.overlays.default ];
+    system = pkgs.stdenv.system;
+  };
 in {
+  imports = [ ./devenv/outputs ];
+
   cachix.enable = false;
 
   # Nix can't (or I can't) expand the $HOME variable during evaluation,
@@ -19,9 +27,11 @@ in {
       "age1zwls895rxugu2kf6f4ys6pgl36e3k7dx4djt3dl9ckdmcgg3naaqs9qjae";
     BIOME_BINARY = "${pkgs.biome}/bin/biome";
     CARGO_TARGET_DIR = "${config.env.TAURI_ROOT}/target";
+    PINIA_STORE_PATH = "${config.env.DEVENV_STATE}/pinia";
     QUASAR_ROOT = "${config.env.DEVENV_ROOT}/src-quasar";
     ROOT_KEY_FILE = "./encrypted/root-key.sops.json";
     TAURI_ROOT = "${config.env.DEVENV_ROOT}/src-tauri";
+    TAURI_UPDATER_KEY_FILE = "./encrypted/tauri-updater.sops.json";
   };
 
   languages = {
@@ -43,7 +53,15 @@ in {
       # https://devenv.sh/reference/options/#languagesrustchannel
       channel = "stable";
 
-      targets = [ "aarch64-apple-darwin" "wasm32-unknown-unknown" ];
+      # Error failed to build app:
+      # - Target x86_64-apple-darwin is not installed (installed targets: aarch64-apple-darwin, thumbv6m-none-eabi, x86_64-unknown-linux-gnu). Please run `rustup target add x86_64-apple-darwin`.
+      targets = [
+        "aarch64-apple-darwin"
+        "wasm32-unknown-unknown"
+        "x86_64-apple-darwin"
+        "x86_64-pc-windows-gnu"
+        "x86_64-unknown-linux-gnu"
+      ];
 
       components = [
         "rustc"
@@ -103,15 +121,509 @@ in {
     settings.rust.cargoManifestPath = "${config.env.TAURI_ROOT}/Cargo.toml";
   };
 
+  outputs = let
+
+    # Strongly typed target descriptor
+    TargetType = lib.types.submodule {
+      options = {
+        system = lib.types.str;
+        rustTarget = lib.types.str;
+        arch = lib.types.str;
+        platform = lib.types.anything;
+      };
+    };
+
+    validateTarget = name: target:
+      let
+        required = [ "rustTarget" "stdenv" ]; # "arch" "platform" ];
+        missing =
+          builtins.filter (attr: !builtins.hasAttr attr target) required;
+      in lib.asserts.assertMsg (missing == [ ])
+      "Invalid target '${name}': missing attributes: ${
+        lib.concatStringsSep ", " missing
+      }";
+
+    mkTarget = systemStr:
+      { rustTargetOverride ? null, cross ? false }:
+      let
+        platform = pkgs.lib.systems.elaborate systemStr;
+        rustTarget = if rustTargetOverride != null then
+          rustTargetOverride
+        else
+          platform.rust.rustcTarget;
+        stdenv' = if cross then pkgs.pkgsCross.mingwW64.stdenv else pkgs.stdenv;
+      in {
+        platform = platform;
+        rustTarget = rustTarget;
+        arch = platform.parsed.cpu.name;
+        stdenv = stdenv';
+      };
+
+    # mkTarget = systemStr: { rustTargetOverride ? null }:
+    #   let
+    #     platform = pkgs.lib.systems.elaborate systemStr;
+    #     rustTarget = if rustTargetOverride != null then rustTargetOverride else platform.rust.rustcTarget;
+    #   in {
+    #     system = pkgs.stdenv.buildPlatform.system; # system = systemStr;
+    #     platform = platform;
+    #     rustTarget = rustTarget;
+    #     arch = platform.parsed.cpu.name;
+    #   };
+
+    targets = {
+      macos = mkTarget "aarch64-darwin" { };
+      # macos = {
+      #   rustTarget = "aarch64-apple-darwin";
+      #   stdenv = pkgs.stdenv;
+      # };
+      windows = {
+        rustTarget = "x86_64-pc-windows-msvc";
+        stdenv =
+          pkgs.stdenv; # Need this for ...-windows-gnu: pkgs.pkgsCross.mingwW64.stdenv;
+      };
+      # windows = {
+      #   rustTarget = "x86_64-pc-windows-gnu";
+      #   stdenv = pkgs.pkgsCross.mingwW64.stdenv;
+      # };
+
+      linux = mkTarget "x86_64-linux" { };
+      windows-via-macos = mkTarget "aarch64-darwin" {
+        rustTargetOverride = "x86_64-pc-windows-gnu";
+        cross = true;
+      };
+      windows-via-linux = mkTarget "x86_64-linux" {
+        rustTargetOverride = "x86_64-pc-windows-gnu";
+        cross = true;
+      };
+      # windows = mkTarget pkgs.stdenv.hostPlatform.system {
+      #   rustTargetOverride = "x86_64-pc-windows-gnu";
+      #   cross = true;
+      # };
+    };
+
+    # targets = {
+    #   macos = mkTarget "aarch64-darwin";
+    #   windows = mkTarget "x86_64-windows";
+    #   linux = mkTarget "x86_64-linux";
+    # };
+
+    buildForTarget = { rustTarget, stdenv, ... }:
+      let
+        isWindowsGnu = rustTarget == "x86_64-pc-windows-gnu";
+        isWindowsMsvc = rustTarget == "x86_64-pc-windows-msvc";
+
+        rustToolchain = pkgs-unstable.rust-bin.stable.latest.default.override {
+          extensions = [ "rust-src" ];
+          targets = [ rustTarget ];
+        };
+
+        # Cross pkgs for Windows
+        winPkgs = pkgs.pkgsCross.mingwW64;
+
+        # IMPORTANT: use makeRustPlatform from the *same pkgs set* as stdenv
+        # so that cross metadata is consistent
+        rustPlatform = if isWindowsGnu then
+          winPkgs.makeRustPlatform {
+            cargo = rustToolchain;
+            rustc = rustToolchain;
+          }
+        else
+          pkgs.makeRustPlatform {
+            cargo = rustToolchain;
+            rustc = rustToolchain;
+          };
+
+        nativeBuildInputs = [
+          pkgs.cargo-tauri
+          pkgs.rsync
+          pkgs.bun
+          pkgs.makeWrapper
+          pkgs.pkg-config
+        ] ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux
+          [ pkgs.wrapGAppsHook4 ]
+          ++ lib.optionals isWindowsMsvc [ pkgs.cargo-xwin pkgs.lld pkgs.nsis ];
+      in rustPlatform.buildRustPackage (finalAttrs: {
+        inherit stdenv;
+        inherit nativeBuildInputs;
+
+        auditable = false;
+
+        pname = "dirtywave-updater";
+        version = application-version;
+        src = lib.cleanSource ./.;
+
+        # No manual --target; stdenv drives it
+        # cargoBuildFlags = [ "--target" rustTarget ];
+        # tauriBuildFlags = [ "--no-bundle" "--target" rustTarget ];
+        doCheck = false;
+        dontTauriInstall = true;
+        dontPatchElf = isWindowsGnu || isWindowsMsvc;
+
+        postPatch = ''
+          rsync -a --copy-links --chmod=ugo+w --exclude=".bin" ${finalAttrs.bunNodeModules}/node_modules/ src-quasar/node_modules/
+
+          mkdir -p src-quasar/node_modules/.bin
+
+          for target in ${finalAttrs.bunNodeModules}/node_modules/.bin/*; do
+            name=$(basename "$target")
+            real=$(readlink -f "$target")
+
+            rm -f "src-quasar/node_modules/.bin/$name"
+
+            # makeWrapper ${pkgs.nodejs}/bin/node "src-quasar/node_modules/.bin/$name" \
+            makeWrapper ${pkgs.bun}/bin/bun "src-quasar/node_modules/.bin/$name" \
+              --add-flags "$real"
+          done
+        '';
+
+        # postPatch = ''
+        #   rsync -a --links --chmod=ugo+w ${finalAttrs.bunNodeModules}/node_modules/ src-quasar/node_modules/
+        #   patchShebangs src-quasar/node_modules
+        # '';
+
+        buildInputs = lib.optionals isWindowsGnu [
+          winPkgs.buildPackages.gcc
+          winPkgs.windows.mingw_w64
+          winPkgs.windows.mcfgthreads
+          winPkgs.windows.pthreads
+        ];
+
+        preBuild = ''
+          export PATH="${finalAttrs.bunNodeModules}/bin:${pkgs.bun}/bin:$PATH"
+
+          export HOME=$(mktemp -d)
+        '' + lib.optionalString isWindowsGnu ''
+          export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="${winPkgs.buildPackages.gcc}/bin/x86_64-w64-mingw32-gcc"
+          export PATH="${winPkgs.buildPackages.gcc}/bin:$PATH"
+          export PKG_CONFIG_ALLOW_CROSS=1
+
+          # For crates that compile C code (via cc-rs)
+          export CC_x86_64_pc_windows_gnu="$CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER"
+          export CXX_x86_64_pc_windows_gnu="${winPkgs.buildPackages.gcc}/bin/x86_64-w64-mingw32-g++"
+          export AR_x86_64_pc_windows_gnu="${winPkgs.buildPackages.gcc}/bin/x86_64-w64-mingw32-ar"
+        '';
+
+        # Use Tauri build hook explicitly
+        # buildPhase = ''
+        #   runHook preBuild
+
+        #   # mkdir -p .cargo
+        #   # cp ''${cargoConfig} .cargo/config.toml
+
+        #   tauriBuildHook
+        #   runHook postBuild
+        # '';
+        # Explicit cargo/tauri invocation with the desired target
+        buildPhase = let
+          #--config '{ "build": { "beforeBuildCommand": "", "beforeDevCommand": "" } }' ''
+          adHocTauriConfig = pkgs.writeTextFile {
+            name = "tauri.conf.json";
+            text = builtins.toJSON {
+              build = {
+                beforeBuildCommand = "";
+                beforeDevCommand = "";
+              };
+            };
+          };
+        in ''
+          runHook preBuild
+
+          ${lib.optionalString (isWindowsGnu || isWindowsMsvc) ''
+            ./src-tauri/scripts/build/unix/beforeBuildCommand.sh
+
+            rm ./src-tauri/tauri.windows.conf.json
+          ''}
+
+          cargoBuildType="''${cargoBuildType:-release}"
+          export "CARGO_PROFILE_''${cargoBuildType@U}_STRIP"=false
+
+          # Keep outputs outside subdir; Tauri respects CLI args better than env here
+          CARGO_TARGET_DIR="$(pwd)/target"
+          export CARGO_TARGET_DIR
+
+          pushd src-tauri
+
+          TAURI_FLAGS=( --no-bundle --target ${rustTarget} )
+          ${lib.optionalString isWindowsMsvc
+          "TAURI_FLAGS+=( --runner cargo-xwin )"}
+
+          CARGO_FLAGS=( -j ''${NIX_BUILD_CORES} --offline --profile "''${cargoBuildType}" --target ${rustTarget} )
+
+          echo "tauri build flags: ''${TAURI_FLAGS[*]}"
+          echo "cargo flags: ''${CARGO_FLAGS[*]}"
+
+          ${lib.getExe rustToolchain} --version || true
+          cargo tauri build "''${TAURI_FLAGS[@]}" -- "''${CARGO_FLAGS[@]}"
+
+          popd
+
+          runHook postBuild
+        '';
+
+        installPhase = let
+          exeSuffix = lib.optionalString (isWindowsGnu || isWindowsMsvc) ".exe";
+        in ''
+          runHook preInstall
+
+          mkdir -p $out/bin
+
+          # Copy the built binary, with .exe suffix when targeting Windows
+          cp target/${rustTarget}/release/dirtywave-updater${exeSuffix} $out/bin/
+
+          mkdir -p $out/share/build
+
+          cp -r src-tauri $out/share/build/
+
+          if [ -d src-quasar/dist ]; then
+            cp -r src-quasar/dist $out/share/build/src-quasar/
+          fi
+
+          ${lib.optionalString isWindowsMsvc ''
+            mkdir -p $out/dist
+
+            if [ -d target/${rustTarget}/release/bundle/nsis ] && \
+              [ "$(ls -A target/${rustTarget}/release/bundle/nsis)" ]; then
+              cp -r target/${rustTarget}/release/bundle/nsis/* $out/dist/
+            fi
+          ''}
+
+          runHook postInstall
+        '';
+
+        cargoHash =
+          "sha256-ElwZcYpR6QxGUbteCDGc9iT6gJ8UJ2ffC7tEdt8OQd4="; # sha256-P+WcPc+ljG/oLT9+pU48zEpuRtPOvkChIn9EAvho7Rk=";
+
+        bunNodeModules =
+          inputs.bun2nix.lib."${pkgs.stdenv.system}".mkBunNodeModules {
+            packages = import ./src-quasar/bun.nix;
+          };
+
+        # nativeBuildInputs = [
+        #   pkgs.bun
+        #   pkgs.cargo-tauri.hook
+        #   pkgs.makeWrapper
+        #   # pkgs.nodejs
+        #   pkgs.pkg-config
+        #   pkgs.rsync
+        # ] ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux
+        #   [ pkgs.wrapGAppsHook4 ];
+
+        # buildInputs = lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+        #   pkgs.glib-networking
+        #   pkgs.openssl
+        #   pkgs.webkitgtk_4_1
+        # ];
+
+        cargoRoot = "src-tauri";
+
+        buildAndTestSubdir = finalAttrs.cargoRoot;
+      });
+
+    bundleForTarget = { rustTarget, stdenv, ... }:
+      buildDrv:
+      let
+        isWindowsGnu = rustTarget == "x86_64-pc-windows-gnu";
+        isWindowsMsvc = rustTarget == "x86_64-pc-windows-msvc";
+        isDarwin = stdenv.hostPlatform.isDarwin;
+
+        # Dummy minisign keypair for pure builds (do not use for production)
+        # These are plain strings checked into the store; safe only for dummy use.
+        # pubkey format is the full minisign public key line (base64), private key is the full minisign secret key file content.
+        dummyUpdaterSecrets = {
+          publicKey =
+            "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI3MDYyQzU3MzI3Mjc4OEYKUldTUGVISXlWeXdHdC8zajRaa2QvWHZ1elpIZTVrOU1LUGNlMDVRZDVBQlhkd0Z4TDNpc1pjdkoK";
+
+          privateKey =
+            "dW50cnVzdGVkIGNvbW1lbnQ6IHJzaWduIGVuY3J5cHRlZCBzZWNyZXQga2V5ClJXUlRZMEl5ekZuOVEvYmlVc2FScmthOVFVVmhDRWN0NE9BOG83ZWYvY1F1djlpeTdKOEFBQkFBQUFBQUFBQUFBQUlBQUFBQWc4Y3hObUFNZEpjT3o3OStWaWZhVXFGalVscGxYVm43RlU3cW1FanpJMWtMSElFWWxRUlBydVV0T2VWYmJWVllDakJHRUZxUzl3VHpjOG45RDQ3U1hWRkNLNlpHNTZBZDROWVV5RFZtQTAzdkJuZUNodVk4Z3JHSEU4emRBNzI5cDl4OXA3ZGhwSGs9Cg==";
+
+          password = "";
+        };
+        # if isWindowsGnu && isDarwin then
+        # # Skip bundling Windows on macOS, just copy the exe + resources
+        #   pkgs.runCommand "dirtywave-updater-bundle-skip" { } ''
+        #     echo "Skipping Windows bundling on macOS; producing exe + resources only."
+        #     mkdir -p $out
+        #     cp -r ${buildDrv}/bin $out/
+        #     cp -r ${buildDrv}/share $out/
+        #   ''
+        # else
+      in pkgs.stdenv.mkDerivation {
+        pname = "dirtywave-updater-bundle";
+        version = application-version;
+        inherit stdenv;
+        src = buildDrv;
+
+        nativeBuildInputs = [ pkgs.cargo pkgs.rustc pkgs.cargo-tauri pkgs.nsis ]
+          ++ lib.optionals stdenv.hostPlatform.isDarwin [
+            (pkgs.writeShellApplication {
+              name = "codesign";
+              text = ''
+                echo "Skipping codesign (pure build)"
+                exit 0
+              '';
+            })
+            pkgs.darwin.xattr
+          ];
+
+        # cp -r $src/share/build/* .
+        buildPhase = ''
+          mkdir -p .bin
+          ln -s ${pkgs.nsis}/bin/makensis .bin/makensis.exe
+          export PATH=$PWD/.bin:$PATH
+
+          cp -r $src/share/build/* .
+
+          chmod -R u+w .
+
+          rm -rf src-tauri/target
+
+          mkdir -p src-tauri/target/${rustTarget}/release
+          mkdir -p src-tauri/target/release
+
+          # if [[ "${rustTarget}" = x86_64-pc-windows-* ]]; then
+          #   cp $src/bin/dirtywave-updater.exe src-tauri/target/${rustTarget}/release/
+          #   cp $src/bin/dirtywave-updater.exe src-tauri/target/release/
+          #   cp $src/bin/dirtywave-updater.exe src-tauri/target/release/dirtywave-updater
+          # else
+          #   cp $src/bin/dirtywave-updater src-tauri/target/${rustTarget}/release/
+          #   cp $src/bin/dirtywave-updater src-tauri/target/release/
+          # fi
+
+          if [[ "${rustTarget}" = x86_64-pc-windows-* ]]; then
+            cp $src/bin/dirtywave-updater.exe src-tauri/target/${rustTarget}/release/
+          else
+            cp $src/bin/dirtywave-updater src-tauri/target/${rustTarget}/release/
+          fi
+
+          # Export dummy updater signing secrets to satisfy Tauri updater plugin.
+          # We sign For Real™ in a later step of the process.
+          export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${dummyUpdaterSecrets.password}"
+          export TAURI_SIGNING_PRIVATE_KEY="${dummyUpdaterSecrets.privateKey}"
+
+          cargo-tauri bundle \
+            --config '{ "bundle": { "useLocalToolsDir": true }, "plugins": { "updater": { "pubkey": "${dummyUpdaterSecrets.publicKey}" } } }' \
+            --target ${rustTarget} \
+            ${
+              lib.optionalString ((rustTarget == "aarch64-apple-darwin")
+                || (rustTarget == "x86_64-apple-darwin")) "--bundles app \\"
+            }
+            ${
+              lib.optionalString (isWindowsGnu || isWindowsMsvc)
+              "--bundles nsis"
+            } 
+        '';
+
+        installPhase = ''
+          mkdir -p $out
+          if [ -d "src-tauri/target/${rustTarget}/release/bundle" ]; then
+            cp -r src-tauri/target/${rustTarget}/release/bundle/* $out/
+          else
+            echo "Bundle directory not found!"
+            find target -name "bundle" -type d || echo "No bundle directories found"
+            exit 1
+          fi
+        '';
+      };
+
+    # # Bundle derivation (pure, with dummy updater keys)
+    # bundleForTarget = let
+
+    #   # Dummy minisign keypair for pure builds (do not use for production)
+    #   # These are plain strings checked into the store; safe only for dummy use.
+    #   # pubkey format is the full minisign public key line (base64), private key is the full minisign secret key file content.
+    #   dummyUpdaterSecrets = {
+    #     publicKey =
+    #       "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI3MDYyQzU3MzI3Mjc4OEYKUldTUGVISXlWeXdHdC8zajRaa2QvWHZ1elpIZTVrOU1LUGNlMDVRZDVBQlhkd0Z4TDNpc1pjdkoK";
+
+    #     privateKey =
+    #       "dW50cnVzdGVkIGNvbW1lbnQ6IHJzaWduIGVuY3J5cHRlZCBzZWNyZXQga2V5ClJXUlRZMEl5ekZuOVEvYmlVc2FScmthOVFVVmhDRWN0NE9BOG83ZWYvY1F1djlpeTdKOEFBQkFBQUFBQUFBQUFBQUlBQUFBQWc4Y3hObUFNZEpjT3o3OStWaWZhVXFGalVscGxYVm43RlU3cW1FanpJMWtMSElFWWxRUlBydVV0T2VWYmJWVllDakJHRUZxUzl3VHpjOG45RDQ3U1hWRkNLNlpHNTZBZDROWVV5RFZtQTAzdkJuZUNodVk4Z3JHSEU4emRBNzI5cDl4OXA3ZGhwSGs9Cg==";
+
+    #     password = "";
+    #   };
+    # in { rustTarget, system }:
+    # buildDrv:
+    # pkgs.stdenv.mkDerivation {
+    #   pname = "dirtywave-updater-bundle";
+    #   version = "0.1.0";
+    #   system = system;
+
+    #   src = buildDrv; # config.outputs.build.${system};
+
+    #   nativeBuildInputs = [ pkgs.cargo pkgs.rustc pkgs.cargo-tauri ]
+    #     ++ lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
+    #       # No-op codesign during pure builds
+    #       (pkgs.writeShellApplication {
+    #         name = "codesign";
+    #         text = ''
+    #           echo "Skipping codesign (pure build)"
+    #           exit 0
+    #         '';
+    #       })
+    #       pkgs.darwin.xattr
+    #     ];
+
+    #   buildPhase = ''
+    #     cp -r $src/share/build/* .
+    #     chmod -R u+w .
+
+    #     mkdir -p src-tauri/target/${rustTarget}/release
+    #     cp $src/bin/dirtywave-updater src-tauri/target/${rustTarget}/release/
+
+    #       # Export dummy updater signing secrets to satisfy Tauri updater plugin.
+    #       # We sign For Real™ in a later step of the process.
+    #       export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${dummyUpdaterSecrets.password}"
+    #       export TAURI_SIGNING_PRIVATE_KEY="${dummyUpdaterSecrets.privateKey}"
+
+    #     cargo-tauri bundle \
+    #       --bundles app \
+    #       --target ${rustTarget} \
+    #       --config '{ "plugins": { "updater": { "pubkey": "${dummyUpdaterSecrets.publicKey}" } } }'
+    #   '';
+
+    #   installPhase = ''
+    #     mkdir -p $out
+
+    #     # Copy the bundled application to output
+    #     if [ -d "src-tauri/target/${rustTarget}/release/bundle" ]; then
+    #       cp -r src-tauri/target/${rustTarget}/release/bundle/* $out/
+    #     else
+    #       echo "Bundle directory not found!"
+    #       find target -name "bundle" -type d || echo "No bundle directories found"
+    #       exit 1
+    #     fi
+    #   '';
+
+    #   meta = {
+    #     description = "Bundled Dirtywave Updater application";
+    #     platforms = lib.platforms.darwin ++ lib.platforms.linux;
+    #   };
+    # };
+  in {
+    # stdenv.hostPlatform.rust.rustcTarget -> "aarch64-apple-darwin"
+    # To choose a different target by name, define stdenv.hostPlatform.rust.rustcTarget
+    # as that name (a string), and that name will be used instead.
+    #
+    # To pass a completely custom target, define stdenv.hostPlatform.rust.rustcTarget
+    # with its name, and stdenv.hostPlatform.rust.platform with the value.
+    # The value will be serialized to JSON in a file called
+    # ${stdenv.hostPlatform.rust.rustcTarget}.json, and the path of that file will be used instead.
+    dirtywave-updater = {
+      build = pkgs.lib.mapAttrs
+        (name: target: assert validateTarget name target; buildForTarget target)
+        targets;
+
+      bundle = pkgs.lib.mapAttrs (name: target:
+        let build = config.outputs.dirtywave-updater.build.${name};
+        in assert validateTarget name target; bundleForTarget target build)
+        targets;
+    };
+  };
+
   packages = [
+    inputs.bun2nix.packages."${pkgs.stdenv.system}".default
     pkgs.age
-    # Compiler infrastructure and toolchain library for WebAssembly, in C++; use a newer version of wasm-opt
-    pkgs.binaryen
     pkgs.cargo-tauri
-    pkgs.nodejs
-    pkgs.wasm-pack
-  ] ++ lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk;
-    [ frameworks.Security ]); # TODO: Look into why this is needed
+  ];
 
   processes.tauri-dev.exec = "tauri-cli dev";
 
@@ -159,13 +671,111 @@ in {
       (cd ${config.env.TAURI_ROOT} && exec "$@")
     '';
 
+    "build_aarch64".exec = ''
+      sops exec-env ./encrypted/tauri-updater.sops.json 'tauri-cli build --target aarch64-apple-darwin'
+    '';
+
     frontend.exec = ''
       (cd ${config.env.QUASAR_ROOT} && exec "$@")
     '';
 
-    quasar-cli.exec = ''
-      (cd ${config.env.QUASAR_ROOT} && bunx @quasar/cli "$@")
+    prepare-release.exec = ''
+      set -euo pipefail
+
+      if [ $# -ne 2 ]; then
+        echo "Usage: $0 <version> <out-dir>"
+        exit 1
+      fi
+
+      VERSION="$1"
+      OUT_DIR="$2"
+      PUB_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+      # Find the most recent tag (if any)
+      LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+      if [ -n "$LAST_TAG" ]; then
+        NOTES=$(git log --pretty=format:"%s" "$LAST_TAG"..HEAD | sed ':a;N;$!ba;s/\n/\\n/g')
+      else
+        NOTES="Initial release"
+      fi
+
+      # Create a new git tag for this version if it doesn't exist yet
+      if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
+        git tag -a "$VERSION" -m "Release $VERSION"
+      fi
+
+      # Read the signature from the build output
+      SIG_FILE="$OUT_DIR/macos/Dirtywave Updater.app.tar.gz.sig"
+      if [ ! -f "$SIG_FILE" ]; then
+        echo "Signature file not found: $SIG_FILE" >&2
+        exit 1
+      fi
+      SIGNATURE=$(tr -d '\n' < "$SIG_FILE")
+
+      URL="https://github.com/euphemism/dirtywave-updater-releases-mirror/releases/download/''${VERSION}/Dirtywave.Updater_aarch64.app.tar.gz"
+
+      cat > latest.json <<EOF
+      {
+        "version": "''${VERSION}",
+        "notes": "''${NOTES}",
+        "pub_date": "''${PUB_DATE}",
+        "platforms": {
+          "darwin-aarch64": {
+            "signature": "''${SIGNATURE}",
+            "url": "''${URL}"
+          }
+        }
+      }
+      EOF
+
+      echo "Generated latest.json for ''${VERSION}"
     '';
+
+    quasar-cli.exec = ''frontend bunx @quasar/cli "$@"'';
+
+    set-and-sync-package-versions = {
+      exec = ''
+        set -euo pipefail
+
+        if [ $# -ne 1 ]; then
+          echo "Usage: $0 {patch|minor|major}"
+          exit 1
+        fi
+
+        BUMP_TYPE="$1"
+
+        echo "BUMP_TYPE is $BUMP_TYPE"
+
+        # Extract current version from devenv.nix
+        CURRENT=$(sed -nE 's/^[[:space:]]*application-version = "0.2.1";$/\1/p' devenv.nix)
+
+        if [ -z "$CURRENT" ]; then
+          echo "Could not determine current version from devenv.nix"
+          exit 1
+        fi
+
+        # Compute new version using semver-tool
+        NEW=$(semver bump "$BUMP_TYPE" "$CURRENT")
+
+        echo "Bumping version: $CURRENT → $NEW"
+
+        # Update devenv.nix
+        sed -i -E "s|(application-version = \").*(\";)|\1''${NEW}\2|" devenv.nix
+
+        # Update Cargo.toml
+        sed -i "s/^version = .*/version = \"''${NEW}\"/" ${config.env.TAURI_ROOT}/Cargo.toml
+
+        # Update package.json
+        sed -i -E "s/\"version\": *\"[^\"]*\"/\"version\": \"''${NEW}\"/" ${config.env.QUASAR_ROOT}/package.json
+
+        echo "Updated all version references to ''${NEW}"
+
+        echo "''${NEW}"
+      '';
+
+      packages = [ pkgs.semver-tool ];
+    };
 
     # This is a wrapper around SOPS to cleanly work with an envelope encryption approach.
     #
@@ -241,9 +851,7 @@ in {
       fi
     '';
 
-    tauri-cli.exec = ''
-      (cd ${config.env.TAURI_ROOT} && cargo-tauri "$@")
-    '';
+    tauri-cli.exec = ''backend cargo-tauri "$@"'';
   };
 
   tasks = {
@@ -257,7 +865,11 @@ in {
       '';
     };
 
-    "dirtywave-updater:build:aarch64" = { exec = "\n"; };
+    # "dirtywave-updater:set-and-sync-package-versions" = {
+    #   before = [ "devenv:enterShell" ];
+
+    #   exec = config.scripts.set-and-sync-package-versions.exec;
+    # };
   };
 
   # See full reference at https://devenv.sh/reference/options/

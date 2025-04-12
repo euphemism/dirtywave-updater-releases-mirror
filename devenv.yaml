@@ -1,21 +1,28 @@
 # yaml-language-server: $schema=https://devenv.sh/devenv.schema.json
 inputs:
-  fenix:
+  bun2nix:
+    url: github:baileyluTCD/bun2nix
     inputs:
       nixpkgs:
         follows: nixpkgs
+  crate2nix:
+    url: github:nix-community/crate2nix
+    inputs:
+      nixpkgs:
+        follows: nixpkgs
+  fenix:
     url: github:nix-community/fenix
+    inputs:
+      nixpkgs:
+        follows: nixpkgs
   nixpkgs:
     url: github:cachix/devenv-nixpkgs/rolling
   nixpkgs-unstable:
     url: github:nixos/nixpkgs/nixpkgs-unstable
-# If you're using non-OSS software, you can set allowUnfree to true.
-# allowUnfree: true
-
-# If you're willing to use a package that's vulnerable
-# permittedInsecurePackages:
-#  - "openssl-1.1.1w"
-
-# If you have more than one devenv you can merge them
-#imports:
-# - ./backend
+  rust-overlay:
+    url: github:oxalica/rust-overlay
+    inputs:
+      nixpkgs:
+        follows: nixpkgs
+nixpkgs:
+  allowBroken: true
