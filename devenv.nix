@@ -18,9 +18,9 @@ in {
   # so the environment variable ends up containing the literal $HOME
   # string instead of the expanded/resolved value of the user's home directory.
   # Because of this, we're setting the variable from the context of the shell.
-  enterShell = ''
-    export SOPS_AGE_KEY_FILE=$HOME/.config/age/identities.txt
-  '';
+  # enterShell = ''
+  #   export SOPS_AGE_KEY_FILE=$HOME/.config/age/identities.txt
+  # '';
 
   env = {
     AGE_ROOT_PUBLIC_KEY =
