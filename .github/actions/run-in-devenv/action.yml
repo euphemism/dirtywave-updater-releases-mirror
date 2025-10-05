@@ -1,3 +1,4 @@
+# .github/actions/run-in-devenv/action.yml
 name: "Run in devenv"
 description: "Execute a command inside the devenv container with the repo mounted"
 inputs:
@@ -11,10 +12,12 @@ runs:
       shell: bash
       run: |
         UIDGID="$(id -u):$(id -g)"
+        mkdir -p "$HOME/.cache/devenv-home"
         docker run --rm \
           -u "$UIDGID" \
+          -e DEVENV_HOME=/devenv-home \
           -v "${GITHUB_WORKSPACE}:/workspace" \
+          -v "$HOME/.cache/devenv-home:/devenv-home" \
           -w /workspace \
-          -e DEVENV_HOME=/workspace/.devenv-home \
           ghcr.io/cachix/devenv/devenv:latest \
-          devenv shell -- "${{ inputs.run }}"
+          devenv exec -- ${{ inputs.run }}
