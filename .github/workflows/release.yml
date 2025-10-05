@@ -7,6 +7,8 @@ on:
 
 jobs:
   release:
+    env:
+      NIX_CONFIG: "experimental-features = nix-command flakes"
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/cachix/devenv/devenv:latest
