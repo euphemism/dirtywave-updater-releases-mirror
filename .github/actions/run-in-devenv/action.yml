@@ -15,5 +15,6 @@ runs:
           -u "$UIDGID" \
           -v "${GITHUB_WORKSPACE}:/workspace" \
           -w /workspace \
+          -e DEVENV_HOME=/workspace/.devenv-home \
           ghcr.io/cachix/devenv/devenv:latest \
-          devenv shell -- bash -c "${{ inputs.run }}"
+          devenv shell -- "${{ inputs.run }}"
