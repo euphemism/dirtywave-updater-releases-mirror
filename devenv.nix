@@ -623,6 +623,7 @@ in {
     inputs.bun2nix.packages."${pkgs.stdenv.system}".default
     pkgs.age
     pkgs.cargo-tauri
+    pkgs.jq
   ];
 
   processes.tauri-dev.exec = "tauri-cli dev";
