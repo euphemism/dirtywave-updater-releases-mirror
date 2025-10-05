@@ -14,7 +14,8 @@ jobs:
 
     defaults:
       run:
-        shell: devenv shell {0}
+        # shell: devenv shell {0}
+        shell: devenv shell bash -- -e {0}
 
     steps:
       - uses: actions/checkout@v5
