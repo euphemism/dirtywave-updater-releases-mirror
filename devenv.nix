@@ -41,7 +41,7 @@ in {
       bun = {
         enable = true;
 
-        install.enable = true;
+        install.enable = false; # true;
       };
 
       directory = "${config.env.QUASAR_ROOT}";
