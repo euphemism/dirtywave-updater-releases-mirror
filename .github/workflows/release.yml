@@ -37,7 +37,7 @@ jobs:
       - name: Determine version bump
         id: determine-bump
         run: |
-          echo "$GITHUB_EVENT_PATH"
+          cat "$GITHUB_EVENT_PATH" | jq .
 
           LABELS=$(jq -r '.pull_request.labels[].name' < "$GITHUB_EVENT_PATH" || true)
 
