@@ -37,6 +37,8 @@ jobs:
       - name: Determine version bump
         id: determine-bump
         run: |
+          echo "$GITHUB_EVENT_PATH"
+
           LABELS=$(jq -r '.pull_request.labels[].name' < "$GITHUB_EVENT_PATH" || true)
 
           if echo "$LABELS" | grep -q "major"; then
