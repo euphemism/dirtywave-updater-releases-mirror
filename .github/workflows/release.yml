@@ -15,9 +15,7 @@ jobs:
         id: version
         uses: ./.github/actions/run-in-devenv
         with:
-          run: |
-            VERSION=$(set-and-sync-package-versions patch)
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
+          run: 'VERSION=$(set-and-sync-package-versions patch); echo "version=$VERSION" >> $GITHUB_OUTPUT;'
 
       - name: Build app
         id: build
