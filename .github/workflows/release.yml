@@ -55,6 +55,7 @@ jobs:
       - name: Sync package versions
         id: bump
         run: |
+          echo "Received ${{ steps.determine-bump.outputs.type }} bump type"
           VERSION=$(set-and-sync-package-versions ${{ steps.determine-bump.outputs.type }})
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
