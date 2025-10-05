@@ -751,7 +751,7 @@ in {
         echo "BUMP_TYPE is $BUMP_TYPE"
 
         # Extract current version from devenv.nix
-        CURRENT=$(sed -nE 's/^[[:space:]]*application-version = "0.2.1";$/\1/p' devenv.nix)
+        CURRENT=$(sed -nE 's/^[[:space:]]*application-version = "([^"]+)";$/\1/p' devenv.nix)
 
         if [ -z "$CURRENT" ]; then
           echo "Could not determine current version from devenv.nix"
@@ -764,13 +764,13 @@ in {
         echo "Bumping version: $CURRENT → $NEW"
 
         # Update devenv.nix
-        sed -i -E "s|(application-version = \").*(\";)|\1''${NEW}\2|" devenv.nix
+        sed -i -E "s|(application-version = \").*(\";)|\\1''${NEW}\\2|" devenv.nix
 
         # Update Cargo.toml
-        sed -i "s/^version = .*/version = \"''${NEW}\"/" ${config.env.TAURI_ROOT}/Cargo.toml
+        sed -i -E "s|^version = \".*\"|version = \"''${NEW}\"|" "${config.env.TAURI_ROOT}/Cargo.toml"
 
         # Update package.json
-        sed -i -E "s/\"version\": *\"[^\"]*\"/\"version\": \"''${NEW}\"/" ${config.env.QUASAR_ROOT}/package.json
+        sed -i -E "s|\"version\": *\"[^\"]*\"|\"version\": \"''${NEW}\"|" "${config.env.QUASAR_ROOT}/package.json"
 
         echo "Updated all version references to ''${NEW}"
 
