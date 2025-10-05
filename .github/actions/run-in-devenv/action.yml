@@ -10,8 +10,9 @@ runs:
     - name: Run in container
       shell: bash
       run: |
-        # Run the given command inside the devenv shell
+        UIDGID="$(id -u):$(id -g)"
         docker run --rm \
+          -u "$UIDGID" \
           -v "${GITHUB_WORKSPACE}:/workspace" \
           -w /workspace \
           ghcr.io/cachix/devenv/devenv:latest \
