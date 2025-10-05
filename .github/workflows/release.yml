@@ -37,17 +37,19 @@ jobs:
       - name: Determine version bump
         id: determine-bump
         run: |
-          cat "$GITHUB_EVENT_PATH" | jq .
+          echo "type=patch" >> $GITHUB_OUTPUT
+          # TODO: Figure out how to dynamically determine bump type
+          # cat "$GITHUB_EVENT_PATH" | jq .
 
-          LABELS=$(jq -r '.pull_request.labels[].name' < "$GITHUB_EVENT_PATH" || true)
+          # LABELS=$(jq -r '.pull_request.labels[].name' < "$GITHUB_EVENT_PATH" || true)
 
-          if echo "$LABELS" | grep -q "major"; then
-            echo "type=major" >> $GITHUB_OUTPUT
-          elif echo "$LABELS" | grep -q "minor"; then
-            echo "type=minor" >> $GITHUB_OUTPUT
-          else
-            echo "type=patch" >> $GITHUB_OUTPUT
-          fi
+          # if echo "$LABELS" | grep -q "major"; then
+          #   echo "type=major" >> $GITHUB_OUTPUT
+          # elif echo "$LABELS" | grep -q "minor"; then
+          #   echo "type=minor" >> $GITHUB_OUTPUT
+          # else
+          #   echo "type=patch" >> $GITHUB_OUTPUT
+          # fi
 
       # Sync package versions inside devenv
       - name: Sync package versions
