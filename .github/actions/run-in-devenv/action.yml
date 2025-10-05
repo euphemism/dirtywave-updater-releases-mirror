@@ -11,6 +11,12 @@ runs:
       shell: bash
       run: |
         UIDGID="$(id -u):$(id -g)"
+        mkdir -p "$HOME/.cache/devenv-home"
+        cat > /tmp/devenv-script.sh <<'EOF'
+        ${{ inputs.run }}
+        EOF
+        chmod +x /tmp/devenv-script.sh
+
         docker run --rm \
           -u "$UIDGID" \
           -e DEVENV_HOME=/devenv-home \
