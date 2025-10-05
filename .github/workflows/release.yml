@@ -10,6 +10,10 @@ jobs:
   release:
     runs-on: macos-latest # ubuntu-latest
 
+    defaults:
+      run:
+        shell: devenv shell {0}
+
     steps:
       - uses: actions/checkout@v5
 
@@ -39,21 +43,21 @@ jobs:
       - name: Sync package versions
         id: bump
         run: |
-          VERSION=$(devenv shell set-and-sync-package-versions ${{ steps.determine-bump.outputs.type }})
+          VERSION=$(set-and-sync-package-versions ${{ steps.determine-bump.outputs.type }})
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       # Build the app
       - name: Build app
         id: build
         run: |
-          OUT=$(devenv shell devenv build outputs.dirtywave-updater.bundle.macos --print-out-paths)
+          OUT=$(devenv build outputs.dirtywave-updater.bundle.macos --print-out-paths)
           echo "out=$OUT" >> $GITHUB_OUTPUT
 
       # Prepare release metadata
       - name: Prepare release
         id: prep
         run: |
-          devenv shell prepare-release ${{ steps.bump.outputs.version }} ${{ steps.build.outputs.out }}
+          prepare-release ${{ steps.bump.outputs.version }} ${{ steps.build.outputs.out }}
 
       # Commit version bump + latest.json
       - name: Commit release changes
