@@ -4,112 +4,87 @@ on:
   push:
     branches:
       - main
+  pull_request:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest # ubuntu-latest
+
     steps:
       - uses: actions/checkout@v5
 
-      - name: Bump versions
-        id: version
-        uses: ./.github/actions/run-in-devenv
+      # Install Nix and devenv
+      - uses: cachix/install-nix-action@v31
+      - uses: cachix/cachix-action@v16
         with:
-          run: 'VERSION=$(set-and-sync-package-versions patch); echo "version=$VERSION" >> $GITHUB_OUTPUT;'
+          name: devenv
+      - name: Install devenv.sh
+        run: nix profile install nixpkgs#devenv
 
+      # Decide bump type based on PR labels
+      - name: Determine version bump
+        id: determine-bump
+        run: |
+          LABELS=$(jq -r '.pull_request.labels[].name' < "$GITHUB_EVENT_PATH" || true)
+
+          if echo "$LABELS" | grep -q "major"; then
+            echo "type=major" >> $GITHUB_OUTPUT
+          elif echo "$LABELS" | grep -q "minor"; then
+            echo "type=minor" >> $GITHUB_OUTPUT
+          else
+            echo "type=patch" >> $GITHUB_OUTPUT
+          fi
+
+      # Sync package versions inside devenv
+      - name: Sync package versions
+        id: bump
+        run: |
+          VERSION=$(devenv shell set-and-sync-package-versions ${{ steps.determine-bump.outputs.type }})
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      # Build the app
       - name: Build app
         id: build
-        uses: ./.github/actions/run-in-devenv
+        run: |
+          OUT=$(devenv shell devenv build outputs.dirtywave-updater.bundle.macos --print-out-paths)
+          echo "out=$OUT" >> $GITHUB_OUTPUT
+
+      # Prepare release metadata
+      - name: Prepare release
+        id: prep
+        run: |
+          devenv shell prepare-release ${{ steps.bump.outputs.version }} ${{ steps.build.outputs.out }}
+
+      # Commit version bump + latest.json
+      - name: Commit release changes
+        run: |
+          VERSION=${{ steps.bump.outputs.version }}
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add devenv.nix latest.json src-quasar/package.json src-tauri/Cargo.toml
+          git commit -m "feat: release ${VERSION}" || echo "No changes to commit"
+          git push origin HEAD:main
+
+      # Create and push tag
+      - name: Create and push tag
+        run: |
+          VERSION=${{ steps.bump.outputs.version }}
+          if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
+            git tag -a "$VERSION" -m "Release $VERSION"
+            git push origin "$VERSION"
+          fi
+
+      # Create GitHub Release with artifacts
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          run: |
-            OUT=$(devenv build outputs.dirtywave-updater.bundle.macos --print-out-paths)
-            echo "out=$OUT" >> $GITHUB_OUTPUT
-
-      - name: Prepare release metadata
-        uses: ./.github/actions/run-in-devenv
-        with:
-          run: prepare-release "v${{ steps.version.outputs.version }}" "${{ steps.build.outputs.out }}"
-# name: Release
-
-# on:
-#   push:
-#     branches:
-#       - main
-
-# jobs:
-#   release:
-#     env:
-#       NIX_CONFIG: "experimental-features = nix-command flakes"
-#     runs-on: ubuntu-latest
-#     container:
-#       image: ghcr.io/cachix/devenv/devenv:latest
-
-#     defaults:
-#       run:
-#         shell: devenv shell bash -- -e {0}
-
-#     steps:
-#       - uses: actions/checkout@v5
-
-#       - name: Determine version bump
-#         id: determine-bump
-#         run: |
-#           LABELS=$(jq -r '.pull_request.labels[].name' < "$GITHUB_EVENT_PATH")
-
-#           if echo "$LABELS" | grep -q "major"; then
-#             echo "type=major" >> $GITHUB_OUTPUT
-#           elif echo "$LABELS" | grep -q "minor"; then
-#             echo "type=minor" >> $GITHUB_OUTPUT
-#           else
-#             echo "type=patch" >> $GITHUB_OUTPUT
-#           fi
-
-#       - name: Sync package versions
-#         id: bump
-#         run: |
-#           VERSION=$(set-and-sync-package-versions ${{ steps.determine-bump.outputs.type }})
-#           echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-#       - name: Build app
-#         id: build
-#         run: |
-#           OUT=$(devenv build outputs.dirtywave-updater.bundle.macos --print-out-paths)
-#           echo "out=$OUT" >> $GITHUB_OUTPUT
-
-#       - name: Prepare release
-#         id: prep
-#         run: prepare-release ${{ steps.bump.outputs.version }} ${{ steps.build.outputs.out }}
-
-#       # Commit version bump + latest.json
-#       - name: Commit release changes
-#         run: |
-#           VERSION=${{ steps.bump.outputs.version }}
-#           git config user.name "github-actions[bot]"
-#           git config user.email "github-actions[bot]@users.noreply.github.com"
-#           git add devenv.nix latest.json src-quasar/package.json src-tauri/Cargo.toml
-#           git commit -m "feat: release ${VERSION}" || echo "No changes to commit"
-#           git push origin HEAD:main
-
-#       - name: Create and push tag
-#         run: |
-#           VERSION=${{ steps.bump.outputs.version }}
-#           if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
-#             git tag -a "$VERSION" -m "Release $VERSION"
-#             git push origin "$VERSION"
-#           fi
-
-#       # Create GitHub Release with proper tag and artifacts
-#       - name: Create GitHub Release
-#         uses: softprops/action-gh-release@v2
-#         with:
-#           tag_name: ${{ steps.bump.outputs.version }}
-#           name: Release ${{ steps.bump.outputs.version }}
-#           generate_release_notes: true
-#           # body_path: latest.json
-#           files: |
-#             latest.json
-#             ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app
-#             ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app.tar.gz
-#             ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app.tar.gz.sig
-#         env:
-#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ steps.bump.outputs.version }}
+          name: Release ${{ steps.bump.outputs.version }}
+          generate_release_notes: true
+          files: |
+            latest.json
+            ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app
+            ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app.tar.gz
+            ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app.tar.gz.sig
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
