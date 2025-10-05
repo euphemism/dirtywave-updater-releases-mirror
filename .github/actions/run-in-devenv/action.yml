@@ -13,7 +13,9 @@ runs:
         UIDGID="$(id -u):$(id -g)"
         docker run --rm \
           -u "$UIDGID" \
+          -e DEVENV_HOME=/devenv-home \
           -v "${GITHUB_WORKSPACE}:/workspace" \
+          -v "$HOME/.cache/devenv-home:/devenv-home" \
           -w /workspace \
           ghcr.io/cachix/devenv/devenv:latest \
-          devenv shell "${{ inputs.run }}"
+          devenv exec -- ${{ inputs.run }}
