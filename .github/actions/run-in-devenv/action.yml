@@ -1,0 +1,17 @@
+name: "Run in devenv"
+description: "Execute a command inside the devenv container with the repo mounted"
+inputs:
+  run:
+    description: "Command to run inside the container"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Run in container
+      shell: bash
+      run: |
+        docker run --rm \
+          -v "${GITHUB_WORKSPACE}:/workspace" \
+          -w /workspace \
+          ghcr.io/cachix/devenv/devenv:latest \
+          bash -c "${{ inputs.run }}"
