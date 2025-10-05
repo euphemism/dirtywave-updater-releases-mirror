@@ -18,13 +18,8 @@ jobs:
         shell: devenv shell bash -- -e {0}
 
     steps:
-      - name: Install GitHub Actions Runner
-        run: nix profile install nixpkgs#github-runner
-        shell: bash
-
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
+
       - name: Determine version bump
         id: determine-bump
         run: |
