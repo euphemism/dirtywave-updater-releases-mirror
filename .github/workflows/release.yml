@@ -18,6 +18,7 @@ jobs:
     steps:
       - name: Install Node.js (for GitHub Actions)
         run: nix profile install nixpkgs#nodejs
+        shell: bash
 
       - uses: actions/checkout@v5
         with:
