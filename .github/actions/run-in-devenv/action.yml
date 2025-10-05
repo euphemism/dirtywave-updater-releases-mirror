@@ -16,4 +16,4 @@ runs:
           -v "${GITHUB_WORKSPACE}:/workspace" \
           -w /workspace \
           ghcr.io/cachix/devenv/devenv:latest \
-          devenv shell -- "${{ inputs.run }}"
+          devenv shell "${{ inputs.run }}"
