@@ -18,4 +18,4 @@ runs:
           -v "$HOME/.cache/devenv-home:/devenv-home" \
           -w /workspace \
           ghcr.io/cachix/devenv/devenv:latest \
-          devenv exec -- ${{ inputs.run }}
+          devenv shell ${{ inputs.run }}
