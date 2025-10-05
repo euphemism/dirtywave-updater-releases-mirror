@@ -97,6 +97,8 @@ in {
         before = [ "biome" ];
         enable = true;
         fail_fast = true;
+        # TODO: Temporary mitigation to address commitizen force-pushing over a release and changing the hash. Should be able to remove in a few days (Currently 2025-10-05).
+        package = pkgs-unstable.commitizen;
       };
 
       eslint = {
