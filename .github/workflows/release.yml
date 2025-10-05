@@ -56,7 +56,7 @@ jobs:
         id: bump
         run: |
           echo "Received ${{ steps.determine-bump.outputs.type }} bump type"
-          VERSION=$(set-and-sync-package-versions ${{ steps.determine-bump.outputs.type }})
+          VERSION=$(set-and-sync-package-versions ${{ steps.determine-bump.outputs.type }} | tail -n1)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       # Build the app
