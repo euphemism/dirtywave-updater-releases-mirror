@@ -63,7 +63,7 @@ jobs:
       - name: Build app
         id: build
         run: |
-          OUT=$(devenv build outputs.dirtywave-updater.bundle.macos --print-out-paths)
+          OUT=$(devenv build outputs.dirtywave-updater.bundle.macos)
           echo "out=$OUT" >> $GITHUB_OUTPUT
 
       # Prepare release metadata
