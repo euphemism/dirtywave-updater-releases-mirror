@@ -10,7 +10,6 @@
 		"build": "bunx quasar build",
 		"dev": "bunx quasar dev",
 		"lint": "bunx eslint -c ./eslint.config.js \"./src*/**/*.{ts,js,cjs,mjs,vue}\"",
-		"postinstall": "bunx quasar prepare",
 		"test:unit:ci": "bunx vitest run --coverage",
 		"test:unit:ui": "bunx vitest --ui",
 		"test:unit": "bunx vitest",
