@@ -754,9 +754,6 @@ in {
 
         CURRENT=$(sed -nE 's|^[[:space:]]*application-version = "([^"]+)";.*|\1|p' devenv.nix)
 
-        echo "current is $CURRENT"
-        echo "end debug"
-
         if [ -z "$CURRENT" ]; then
           echo "Could not determine current version from devenv.nix"
           exit 1
