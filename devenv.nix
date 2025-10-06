@@ -752,8 +752,10 @@ in {
 
         BUMP_TYPE="$1"
 
-        # Extract current version from devenv.nix
-        CURRENT=$(sed -nE 's/^[[:space:]]*application-version = "0.2.1";$/\1/p' devenv.nix)
+        CURRENT=$(sed -nE 's|^[[:space:]]*application-version = "([^"]+)";.*|\1|p' devenv.nix)
+
+        echo "current is $CURRENT"
+        echo "end debug"
 
         if [ -z "$CURRENT" ]; then
           echo "Could not determine current version from devenv.nix"
@@ -766,7 +768,7 @@ in {
         echo "Bumping version: $CURRENT → $NEW" >&2
 
         # Update devenv.nix
-        sed -i -E "s|(application-version = \").*(\";)|\\1''${NEW}\\2|" devenv.nix
+        sed -i -E "s|^([[:space:]]*application-version = \").*(\";)|\1''${NEW}\2|" devenv.nix
 
         # Update Cargo.toml
         sed -i -E "s|^version = \".*\"|version = \"''${NEW}\"|" "${config.env.TAURI_ROOT}/Cargo.toml"
