@@ -71,10 +71,10 @@ jobs:
       #     echo "out=$OUT" >> $GITHUB_OUTPUT
 
       # Prepare release metadata
-      - name: Prepare release
-        id: prep
-        run: |
-          prepare-release ${{ steps.bump.outputs.version }} ${{ steps.build.outputs.out }}
+      # - name: Prepare release
+      #   id: prep
+      #   run: |
+      #     prepare-release ${{ steps.bump.outputs.version }} ${{ steps.build.outputs.out }}
 
       # Commit version bump + latest.json
       # - name: Commit release changes
