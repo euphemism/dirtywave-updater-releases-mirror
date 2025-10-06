@@ -1,0 +1,11 @@
+{
+  "version": "0.2.3",
+  "notes": "",
+  "pub_date": "2025-10-06T23:54:51Z",
+  "platforms": {
+    "darwin-aarch64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUGVISXlWeXdHdDlxWDhxZG1ualp5ZE5Tb25mS3dDc2UzbmRIRHhKSEcyd0FOSmliL3hVZStJdzlBKytjVUJJelRYZ2hUVmIyeEhxSk5STFg2ZzNsSjNxbFpmbTZmOWdrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzU5Nzk0ODg5CWZpbGU6RGlydHl3YXZlIFVwZGF0ZXIuYXBwLnRhci5negpsdmwzZEU3LzYrWllTYXVaOXdZNUFyaUpOOFhGZ2NKTEU1M3UyNmh6Q0Vhc01LWW14Z2s3ZXBDUWlDUkh5U3Jrd1k5eGZESmdiYlkyNyt5VzBMNHJBdz09Cg==",
+      "url": "https://github.com/euphemism/dirtywave-updater-releases-mirror/releases/download/0.2.3/Dirtywave%20Updater.app.tar.gz"
+    }
+  }
+}
