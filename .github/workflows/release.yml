@@ -9,6 +9,10 @@ jobs:
   release:
     runs-on: macos-latest # ubuntu-latest
 
+    permissions:
+      attestations: write
+      contents: write
+
     env:
       TMPDIR: /tmp
 
@@ -21,17 +25,17 @@ jobs:
       - uses: actions/checkout@v5
 
       # Install Nix and devenv
-      - uses: cachix/install-nix-action@v31
-      - uses: cachix/cachix-action@v16
-        with:
-          name: devenv
-      - name: Install devenv.sh
-        shell: bash
-        run: nix profile add nixpkgs#devenv
+      # - uses: cachix/install-nix-action@v31
+      # - uses: cachix/cachix-action@v16
+      #   with:
+      #     name: devenv
+      # - name: Install devenv.sh
+      #   shell: bash
+      #   run: nix profile add nixpkgs#devenv
 
-      - name: Prepare devenv shell environment
-        id: prepare-devenv-shell
-        run: echo "devenv shell ready"
+      # - name: Prepare devenv shell environment
+      #   id: prepare-devenv-shell
+      #   run: echo "devenv shell ready"
 
       # Decide bump type based on PR labels
       - name: Determine version bump
@@ -103,16 +107,16 @@ jobs:
       #     fi
 
       # Create GitHub Release with artifacts
-      # - name: Create GitHub Release
-      #   uses: softprops/action-gh-release@v2
-      #   with:
-      #     tag_name: ${{ steps.bump.outputs.version }}
-      #     name: Release ${{ steps.bump.outputs.version }}
-      #     generate_release_notes: true
-      #     files: |
-      #       latest.json
-      #       ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app
-      #       ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app.tar.gz
-      #       ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app.tar.gz.sig
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.bump.outputs.version }}
+          name: Release ${{ steps.bump.outputs.version }}
+          generate_release_notes: true
+          files: |
+            latest.json
+            ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app
+            ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app.tar.gz
+            ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app.tar.gz.sig
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
