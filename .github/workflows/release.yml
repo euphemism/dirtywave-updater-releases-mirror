@@ -7,7 +7,7 @@ on:
 
 jobs:
   release:
-    runs-on: macos-latest # ubuntu-latest
+    runs-on: macos-latest
 
     permissions:
       attestations: write
@@ -18,13 +18,11 @@ jobs:
 
     defaults:
       run:
-        # shell: devenv shell {0}
         shell: devenv shell bash -- -e {0}
 
     steps:
       - uses: actions/checkout@v5
 
-      # Install Nix and devenv
       - uses: cachix/install-nix-action@v31
       - uses: cachix/cachix-action@v16
         with:
@@ -37,7 +35,6 @@ jobs:
         id: prepare-devenv-shell
         run: echo "devenv shell ready"
 
-      # Decide bump type based on PR labels
       - name: Determine version bump
         id: determine-bump
         run: |
@@ -55,56 +52,39 @@ jobs:
           #   echo "type=patch" >> $GITHUB_OUTPUT
           # fi
 
-      # Sync package versions inside devenv
       - name: Sync package versions
         id: bump
         run: |
           echo "Received ${{ steps.determine-bump.outputs.type }} bump type"
-          VERSION=$(set-and-sync-package-versions ${{ steps.determine-bump.outputs.type }} | tail -n1)
+          VERSION=$(set-and-sync-package-versions ${{ steps.determine-bump.outputs.type }})
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      # Build the app
+      - uses: EndBug/add-and-commit@v9
+        if: ${{ github.event_name == 'push' }}
+        with:
+          add: '["devenv.nix", "src-quasar/package.json", "src-tauri/Cargo.toml"]'
+          default_author: github_actions
+          message: "feat: release ${{ steps.bump.outputs.version }}"
+          push: false
+          tag: ${{ steps.bump.outputs.version }}
+
       - name: Build app
         id: build
         run: |
-          OUT=$(devenv build outputs.dirtywave-updater.bundle.macos)
+          OUT=$(devenv build -v outputs.dirtywave-updater.bundle.macos)
           echo "out=$OUT" >> $GITHUB_OUTPUT
 
-      # Prepare release metadata
       - name: Prepare release
         id: prep
         run: |
           prepare-release ${{ steps.bump.outputs.version }} ${{ steps.build.outputs.out }}
 
-      # Commit version bump + latest.json
-      # - name: Commit release changes
-      #   run: |
-      #     VERSION=${{ steps.bump.outputs.version }}
-      #     git config user.name "github-actions[bot]"
-      #     git config user.email "github-actions[bot]@users.noreply.github.com"
-      #     git add devenv.nix latest.json src-quasar/package.json src-tauri/Cargo.toml
-      #     git commit -m "feat: release ${VERSION}" || echo "No changes to commit"
-      #     git push origin HEAD:main
-
-      # - name: Commit release changes
-      #   run: devenv shell devenv-generate-doc-options
-
       - uses: EndBug/add-and-commit@v9
         if: ${{ github.event_name == 'push' }}
         with:
+          add: "latest.json"
+          commit: "--amend --no-edit"
           default_author: github_actions
-          add: '["devenv.nix", "latest.json", "src-quasar/package.json", "src-tauri/Cargo.toml"]'
-          message: "feat: release ${{ steps.bump.outputs.version }}"
-          tag: ${{ steps.bump.outputs.version }}
-
-      # Create and push tag
-      # - name: Create and push tag
-      #   run: |
-      #     VERSION=${{ steps.bump.outputs.version }}
-      #     if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
-      #       git tag -a "$VERSION" -m "Release $VERSION"
-      #       git push origin "$VERSION"
-      #     fi
 
       # Create GitHub Release with artifacts
       - name: Create GitHub Release

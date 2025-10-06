@@ -711,13 +711,16 @@ in {
 
       # Read the signature from the build output
       SIG_FILE="$OUT_DIR/macos/Dirtywave Updater.app.tar.gz.sig"
+
       if [ ! -f "$SIG_FILE" ]; then
         echo "Signature file not found: $SIG_FILE" >&2
+
         exit 1
       fi
+
       SIGNATURE=$(tr -d '\n' < "$SIG_FILE")
 
-      URL="https://github.com/euphemism/dirtywave-updater-releases-mirror/releases/download/''${VERSION}/Dirtywave.Updater_aarch64.app.tar.gz"
+      URL="https://github.com/euphemism/dirtywave-updater-releases-mirror/releases/download/''${VERSION}/Dirtywave%20Updater.app.tar.gz"
 
       cat > latest.json <<EOF
       {
@@ -749,8 +752,6 @@ in {
 
         BUMP_TYPE="$1"
 
-        echo "BUMP_TYPE is $BUMP_TYPE"
-
         # Extract current version from devenv.nix
         CURRENT=$(sed -nE 's/^[[:space:]]*application-version = "0.2.1";$/\1/p' devenv.nix)
 
@@ -762,7 +763,7 @@ in {
         # Compute new version using semver-tool
         NEW=$(semver bump "$BUMP_TYPE" "$CURRENT")
 
-        echo "Bumping version: $CURRENT → $NEW"
+        echo "Bumping version: $CURRENT → $NEW" >&2
 
         # Update devenv.nix
         sed -i -E "s|(application-version = \").*(\";)|\\1''${NEW}\\2|" devenv.nix
@@ -772,8 +773,6 @@ in {
 
         # Update package.json
         sed -i -E "s|\"version\": *\"[^\"]*\"|\"version\": \"''${NEW}\"|" "${config.env.QUASAR_ROOT}/package.json"
-
-        echo "Updated all version references to ''${NEW}"
 
         echo "''${NEW}"
       '';
