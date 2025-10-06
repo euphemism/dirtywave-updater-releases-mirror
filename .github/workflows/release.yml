@@ -60,48 +60,59 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       # Build the app
-      - name: Build app
-        id: build
-        run: |
-          OUT=$(devenv build outputs.dirtywave-updater.bundle.macos)
-          echo "out=$OUT" >> $GITHUB_OUTPUT
+      # - name: Build app
+      #   id: build
+      #   run: |
+      #     OUT=$(devenv build outputs.dirtywave-updater.bundle.macos)
+      #     echo "out=$OUT" >> $GITHUB_OUTPUT
 
       # Prepare release metadata
-      - name: Prepare release
-        id: prep
-        run: |
-          prepare-release ${{ steps.bump.outputs.version }} ${{ steps.build.outputs.out }}
+      # - name: Prepare release
+      #   id: prep
+      #   run: |
+      #     prepare-release ${{ steps.bump.outputs.version }} ${{ steps.build.outputs.out }}
 
       # Commit version bump + latest.json
-      - name: Commit release changes
-        run: |
-          VERSION=${{ steps.bump.outputs.version }}
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add devenv.nix latest.json src-quasar/package.json src-tauri/Cargo.toml
-          git commit -m "feat: release ${VERSION}" || echo "No changes to commit"
-          git push origin HEAD:main
+      # - name: Commit release changes
+      #   run: |
+      #     VERSION=${{ steps.bump.outputs.version }}
+      #     git config user.name "github-actions[bot]"
+      #     git config user.email "github-actions[bot]@users.noreply.github.com"
+      #     git add devenv.nix latest.json src-quasar/package.json src-tauri/Cargo.toml
+      #     git commit -m "feat: release ${VERSION}" || echo "No changes to commit"
+      #     git push origin HEAD:main
+
+      # - name: Commit release changes
+      #   run: devenv shell devenv-generate-doc-options
+
+      - uses: EndBug/add-and-commit@v9
+        if: ${{ github.event_name == 'push' }}
+        with:
+          default_author: github_actions
+          add: '["devenv.nix", "latest.json", "src-quasar/package.json", "src-tauri/Cargo.toml"]'
+          message: "feat: release ${{ steps.bump.outputs.version }}"
+          tag: ${{ steps.bump.outputs.version }}
 
       # Create and push tag
-      - name: Create and push tag
-        run: |
-          VERSION=${{ steps.bump.outputs.version }}
-          if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
-            git tag -a "$VERSION" -m "Release $VERSION"
-            git push origin "$VERSION"
-          fi
+      # - name: Create and push tag
+      #   run: |
+      #     VERSION=${{ steps.bump.outputs.version }}
+      #     if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
+      #       git tag -a "$VERSION" -m "Release $VERSION"
+      #       git push origin "$VERSION"
+      #     fi
 
       # Create GitHub Release with artifacts
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.bump.outputs.version }}
-          name: Release ${{ steps.bump.outputs.version }}
-          generate_release_notes: true
-          files: |
-            latest.json
-            ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app
-            ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app.tar.gz
-            ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app.tar.gz.sig
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Create GitHub Release
+      #   uses: softprops/action-gh-release@v2
+      #   with:
+      #     tag_name: ${{ steps.bump.outputs.version }}
+      #     name: Release ${{ steps.bump.outputs.version }}
+      #     generate_release_notes: true
+      #     files: |
+      #       latest.json
+      #       ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app
+      #       ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app.tar.gz
+      #       ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app.tar.gz.sig
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
