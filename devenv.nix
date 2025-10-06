@@ -3,7 +3,7 @@
 let
   # Source of truth.
   # Automatically propagates to src-tauri/Cargo.toml and src-quasar/package.json
-  application-version = "0.2.0";
+  application-version = "0.2.1";
 
   pkgs-unstable = import inputs.nixpkgs-unstable {
     overlays = [ inputs.rust-overlay.overlays.default ];
@@ -752,7 +752,7 @@ in {
         echo "BUMP_TYPE is $BUMP_TYPE"
 
         # Extract current version from devenv.nix
-        CURRENT=$(sed -nE 's/^[[:space:]]*application-version = "([^"]+)";$/\1/p' devenv.nix)
+        CURRENT=$(sed -nE 's/^[[:space:]]*application-version = "0.2.1";$/\1/p' devenv.nix)
 
         if [ -z "$CURRENT" ]; then
           echo "Could not determine current version from devenv.nix"
