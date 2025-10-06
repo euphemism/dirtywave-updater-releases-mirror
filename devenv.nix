@@ -239,6 +239,7 @@ in {
           pkgs.cargo-tauri
           pkgs.rsync
           pkgs.bun
+          inputs.bun2nix.packages."${pkgs.stdenv.system}".default
           pkgs.makeWrapper
           pkgs.pkg-config
         ] ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux
