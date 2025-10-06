@@ -64,17 +64,17 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       # Build the app
-      # - name: Build app
-      #   id: build
-      #   run: |
-      #     OUT=$(devenv build outputs.dirtywave-updater.bundle.macos)
-      #     echo "out=$OUT" >> $GITHUB_OUTPUT
+      - name: Build app
+        id: build
+        run: |
+          OUT=$(devenv build outputs.dirtywave-updater.bundle.macos)
+          echo "out=$OUT" >> $GITHUB_OUTPUT
 
       # Prepare release metadata
-      # - name: Prepare release
-      #   id: prep
-      #   run: |
-      #     prepare-release ${{ steps.bump.outputs.version }} ${{ steps.build.outputs.out }}
+      - name: Prepare release
+        id: prep
+        run: |
+          prepare-release ${{ steps.bump.outputs.version }} ${{ steps.build.outputs.out }}
 
       # Commit version bump + latest.json
       # - name: Commit release changes
