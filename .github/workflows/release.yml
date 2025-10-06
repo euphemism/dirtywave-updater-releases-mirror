@@ -25,17 +25,17 @@ jobs:
       - uses: actions/checkout@v5
 
       # Install Nix and devenv
-      # - uses: cachix/install-nix-action@v31
-      # - uses: cachix/cachix-action@v16
-      #   with:
-      #     name: devenv
-      # - name: Install devenv.sh
-      #   shell: bash
-      #   run: nix profile add nixpkgs#devenv
+      - uses: cachix/install-nix-action@v31
+      - uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+      - name: Install devenv.sh
+        shell: bash
+        run: nix profile add nixpkgs#devenv
 
-      # - name: Prepare devenv shell environment
-      #   id: prepare-devenv-shell
-      #   run: echo "devenv shell ready"
+      - name: Prepare devenv shell environment
+        id: prepare-devenv-shell
+        run: echo "devenv shell ready"
 
       # Decide bump type based on PR labels
       - name: Determine version bump
@@ -71,10 +71,10 @@ jobs:
       #     echo "out=$OUT" >> $GITHUB_OUTPUT
 
       # Prepare release metadata
-      # - name: Prepare release
-      #   id: prep
-      #   run: |
-      #     prepare-release ${{ steps.bump.outputs.version }} ${{ steps.build.outputs.out }}
+      - name: Prepare release
+        id: prep
+        run: |
+          prepare-release ${{ steps.bump.outputs.version }} ${{ steps.build.outputs.out }}
 
       # Commit version bump + latest.json
       # - name: Commit release changes
