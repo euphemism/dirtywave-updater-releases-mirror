@@ -29,9 +29,9 @@ in {
     CARGO_TARGET_DIR = "${config.env.TAURI_ROOT}/target";
     PINIA_STORE_PATH = "${config.env.DEVENV_STATE}/pinia";
     QUASAR_ROOT = "${config.env.DEVENV_ROOT}/src-quasar";
-    ROOT_KEY_FILE = "./encrypted/root-key.sops.json";
+    ROOT_KEY_FILE = "${config.env.DEVENV_ROOT}/encrypted/root-key.sops.json";
     TAURI_ROOT = "${config.env.DEVENV_ROOT}/src-tauri";
-    TAURI_UPDATER_KEY_FILE = "./encrypted/tauri-updater.sops.json";
+    TAURI_UPDATER_KEY_FILE = "${config.env.DEVENV_ROOT}/encrypted/tauri-updater.sops.json";
   };
 
   languages = {
@@ -456,7 +456,7 @@ in {
         inherit stdenv;
         src = buildDrv;
 
-        nativeBuildInputs = [ pkgs.cargo pkgs.rustc pkgs.cargo-tauri pkgs.nsis ]
+        nativeBuildInputs = [ pkgs.cargo pkgs.rustc pkgs.cargo-tauri ]
           ++ lib.optionals stdenv.hostPlatform.isDarwin [
             (pkgs.writeShellApplication {
               name = "codesign";
@@ -466,13 +466,15 @@ in {
               '';
             })
             pkgs.darwin.xattr
-          ];
+          ] ++ lib.optionals (isWindowsGnu || isWindowsMsvc) [ pkgs.nsis ];
 
-        # cp -r $src/share/build/* .
         buildPhase = ''
           mkdir -p .bin
-          ln -s ${pkgs.nsis}/bin/makensis .bin/makensis.exe
-          export PATH=$PWD/.bin:$PATH
+
+          ${lib.optionalString (isWindowsGnu || isWindowsMsvc) ''
+            ln -s ${pkgs.nsis}/bin/makensis .bin/makensis.exe
+            export PATH=$PWD/.bin:$PATH
+          ''}
 
           cp -r $src/share/build/* .
 
@@ -482,15 +484,6 @@ in {
 
           mkdir -p src-tauri/target/${rustTarget}/release
           mkdir -p src-tauri/target/release
-
-          # if [[ "${rustTarget}" = x86_64-pc-windows-* ]]; then
-          #   cp $src/bin/dirtywave-updater.exe src-tauri/target/${rustTarget}/release/
-          #   cp $src/bin/dirtywave-updater.exe src-tauri/target/release/
-          #   cp $src/bin/dirtywave-updater.exe src-tauri/target/release/dirtywave-updater
-          # else
-          #   cp $src/bin/dirtywave-updater src-tauri/target/${rustTarget}/release/
-          #   cp $src/bin/dirtywave-updater src-tauri/target/release/
-          # fi
 
           if [[ "${rustTarget}" = x86_64-pc-windows-* ]]; then
             cp $src/bin/dirtywave-updater.exe src-tauri/target/${rustTarget}/release/
@@ -676,68 +669,130 @@ in {
     '';
 
     "build_aarch64".exec = ''
-      sops exec-env ./encrypted/tauri-updater.sops.json 'tauri-cli build --target aarch64-apple-darwin'
+      sops exec-env $TAURI_UPDATER_KEY_FILE 'tauri-cli build --target aarch64-apple-darwin'
     '';
 
     frontend.exec = ''
       (cd ${config.env.QUASAR_ROOT} && exec "$@")
     '';
 
-    prepare-release.exec = ''
-      set -euo pipefail
+    prepare-release = {
+      exec = ''
+        set -euo pipefail
 
-      if [ $# -ne 2 ]; then
-        echo "Usage: $0 <version> <out-dir>"
-        exit 1
-      fi
+        if [ $# -ne 2 ]; then
+          echo "Usage: $0 <version> <out-dir>"
+          exit 1
+        fi
 
-      VERSION="$1"
-      OUT_DIR="$2"
-      PUB_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        VERSION="$1"
+        OUT_DIR="$2"
+        PUB_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-      # Find the most recent tag (if any)
-      LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        # Find the most recent tag (if any)
+        LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
-      if [ -n "$LAST_TAG" ]; then
-        NOTES=$(git log --pretty=format:"%s" "$LAST_TAG"..HEAD | sed ':a;N;$!ba;s/\n/\\n/g')
-      else
-        NOTES="Initial release"
-      fi
+        if [ -n "$LAST_TAG" ]; then
+          NOTES=$(git log --pretty=format:"%s" "$LAST_TAG"..HEAD)
+          if [ -z "$NOTES" ]; then
+            NOTES="No new commits since $LAST_TAG"
+          fi
+        else
+          NOTES="Initial release"
+        fi
 
-      # Create a new git tag for this version if it doesn't exist yet
-      if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
-        git tag -a "$VERSION" -m "Release $VERSION"
-      fi
+        # Escape notes safely for JSON
+        NOTES_JSON=$(printf '%s' "$NOTES" | jq -Rs .)
 
-      # Read the signature from the build output
-      SIG_FILE="$OUT_DIR/macos/Dirtywave Updater.app.tar.gz.sig"
+        # Create a new git tag for this version if it doesn't exist yet
+        if ! git rev-parse "''${VERSION}" >/dev/null 2>&1; then
+          git tag -a "''${VERSION}" -m "Release ''${VERSION}"
+        fi
 
-      if [ ! -f "$SIG_FILE" ]; then
-        echo "Signature file not found: $SIG_FILE" >&2
+        # Read the signature from the build output
+        SIG_FILE="''${OUT_DIR}/macos/Dirtywave Updater.app.tar.gz.sig"
 
-        exit 1
-      fi
+        if [ ! -f "''${SIG_FILE}" ]; then
+          echo "Signature file not found: ''${SIG_FILE}" >&2
+          exit 1
+        fi
 
-      SIGNATURE=$(tr -d '\n' < "$SIG_FILE")
+        SIGNATURE=$(tr -d '\n' < "''${SIG_FILE}")
 
-      URL="https://github.com/euphemism/dirtywave-updater-releases-mirror/releases/download/''${VERSION}/Dirtywave%20Updater.app.tar.gz"
+        URL="https://github.com/euphemism/dirtywave-updater-releases-mirror/releases/download/''${VERSION}/Dirtywave.Updater.app.tar.gz"
 
-      cat > latest.json <<EOF
-      {
-        "version": "''${VERSION}",
-        "notes": "''${NOTES}",
-        "pub_date": "''${PUB_DATE}",
-        "platforms": {
-          "darwin-aarch64": {
-            "signature": "''${SIGNATURE}",
-            "url": "''${URL}"
+        cat > latest.json <<EOF
+        {
+          "version": "''${VERSION}",
+          "notes": ''${NOTES_JSON},
+          "pub_date": "''${PUB_DATE}",
+          "platforms": {
+            "darwin-aarch64": {
+              "signature": "''${SIGNATURE}",
+              "url": "''${URL}"
+            }
           }
         }
-      }
       EOF
 
-      echo "Generated latest.json for ''${VERSION}"
-    '';
+        echo "Generated latest.json for ''${VERSION}"
+      '';
+      # set -euo pipefail
+
+      # if [ $# -ne 2 ]; then
+      #   echo "Usage: $0 <version> <out-dir>"
+      #   exit 1
+      # fi
+
+      # VERSION="$1"
+      # OUT_DIR="$2"
+      # PUB_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+      # # Find the most recent tag (if any)
+      # LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+      # if [ -n "$LAST_TAG" ]; then
+      #   NOTES=$(git log --pretty=format:"%s" "$LAST_TAG"..HEAD | sed ':a;N;$!ba;s/\n/\\n/g')
+      # else
+      #   NOTES="Initial release"
+      # fi
+
+      # # Create a new git tag for this version if it doesn't exist yet
+      # if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
+      #   git tag -a "$VERSION" -m "Release $VERSION"
+      # fi
+
+      # # Read the signature from the build output
+      # SIG_FILE="$OUT_DIR/macos/Dirtywave Updater.app.tar.gz.sig"
+
+      # if [ ! -f "$SIG_FILE" ]; then
+      #   echo "Signature file not found: $SIG_FILE" >&2
+
+      #   exit 1
+      # fi
+
+      # SIGNATURE=$(tr -d '\n' < "$SIG_FILE")
+
+      # URL="https://github.com/euphemism/dirtywave-updater-releases-mirror/releases/download/''${VERSION}/Dirtywave.Updater.app.tar.gz"
+
+      # cat > latest.json <<EOF
+      # {
+      #   "version": "''${VERSION}",
+      #   "notes": "''${NOTES}",
+      #   "pub_date": "''${PUB_DATE}",
+      #   "platforms": {
+      #     "darwin-aarch64": {
+      #       "signature": "''${SIGNATURE}",
+      #       "url": "''${URL}"
+      #     }
+      #   }
+      # }
+      # EOF
+
+      # echo "Generated latest.json for ''${VERSION}"
+
+      packages = [ pkgs.jq ];
+    };
 
     quasar-cli.exec = ''frontend bunx @quasar/cli "$@"'';
 
@@ -777,6 +832,65 @@ in {
       '';
 
       packages = [ pkgs.semver-tool ];
+    };
+
+    sign-updater = {
+      exec = ''
+        set -euo pipefail
+
+        OUT_DIR="."
+
+        if [[ "''${1:-}" == "--out-dir" ]]; then
+          OUT_DIR="$2"
+
+          shift 2
+        fi
+
+        sign_file() {
+          : "''${TAURI_SIGNING_PRIVATE_KEY:?TAURI_SIGNING_PRIVATE_KEY must be set}"
+          : "''${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:=}"
+
+          local tmpdir
+          tmpdir="$(mktemp -d)"
+          trap 'rm -rf "$tmpdir"' EXIT
+          local seckey_file="$tmpdir/minisign.key"
+
+          if echo "$TAURI_SIGNING_PRIVATE_KEY" | base64 -d >/dev/null 2>&1; then
+            echo "$TAURI_SIGNING_PRIVATE_KEY" | base64 -d >"$seckey_file"
+          else
+            echo "$TAURI_SIGNING_PRIVATE_KEY" >"$seckey_file"
+          fi
+          
+          local ts fname trusted_comment
+          ts=$(date +%s)
+          fname=$(basename "$FILE")
+          trusted_comment="timestamp:''${ts}\tfile:''${fname}"
+
+          if minisign -S \
+              -x "$OUT_DIR/''${fname}.sig" \
+              -s "$seckey_file" \
+              -c "signature from tauri secret key" \
+              -t "$trusted_comment" \
+              -m "$FILE" \
+              <<<"$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" 2>/dev/null
+          then
+            echo "Signed $FILE -> $OUT_DIR/''${fname}.sig"
+          else
+            echo "ERROR: signing failed for $FILE" >&2
+
+            exit 1
+          fi
+        }
+
+        # Export the function and the captured variables so they're visible inside exec-env
+        export -f sign_file
+        export OUT_DIR
+        export FILE="$1"
+
+        exec sops exec-env "$TAURI_UPDATER_KEY_FILE" 'sign_file'
+      '';
+
+      packages = [ pkgs.minisign ];
     };
 
     # This is a wrapper around SOPS to cleanly work with an envelope encryption approach.
@@ -866,12 +980,6 @@ in {
         [ "$(git config --local diff.sopsdiffer.textconv)" = "sops decrypt" ] && exit 0 || exit 1
       '';
     };
-
-    # "dirtywave-updater:set-and-sync-package-versions" = {
-    #   before = [ "devenv:enterShell" ];
-
-    #   exec = config.scripts.set-and-sync-package-versions.exec;
-    # };
   };
 
   # See full reference at https://devenv.sh/reference/options/

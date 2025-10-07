@@ -13,12 +13,11 @@ jobs:
       attestations: write
       contents: write
 
-    env:
-      TMPDIR: /tmp
-
     defaults:
       run:
         shell: devenv shell bash -- -e {0}
+
+    environment: release
 
     steps:
       - uses: actions/checkout@v5
@@ -75,33 +74,46 @@ jobs:
       - name: Build app
         id: build
         run: |
+          OUT=$(devenv build -v outputs.dirtywave-updater.build.macos)
+          echo "out=$OUT" >> $GITHUB_OUTPUT
+
+      - name: Bundle app
+        id: bundle
+        run: |
           OUT=$(devenv build -v outputs.dirtywave-updater.bundle.macos)
           echo "out=$OUT" >> $GITHUB_OUTPUT
+
+      - name: Sign application updater
+        run: |
+          sign-updater --out-dir "$RUNNER_TEMP" "${{ steps.bundle.outputs.out }}/macos/Dirtywave Updater.app.tar.gz"
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
 
       - name: Prepare release
         id: prep
         run: |
-          prepare-release ${{ steps.bump.outputs.version }} ${{ steps.build.outputs.out }}
-
-      - uses: EndBug/add-and-commit@v9
-        if: ${{ github.event_name == 'push' }}
-        with:
-          add: "latest.json"
-          commit: "--amend --no-edit"
-          default_author: github_actions
-          message: "feat: release ${{ steps.bump.outputs.version }}"
+          prepare-release ${{ steps.bump.outputs.version }} ${{ steps.bundle.outputs.out }}
 
       # Create GitHub Release with artifacts
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.bump.outputs.version }}
-          name: Release ${{ steps.bump.outputs.version }}
-          generate_release_notes: true
           files: |
-            latest.json
+            $RUNNER_TEMP/Dirtywave Updater.app.tar.gz.sig
             ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app
             ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app.tar.gz
-            ${{ steps.build.outputs.out }}/macos/Dirtywave Updater.app.tar.gz.sig
+            latest.json
+          generate_release_notes: true
+          name: Release ${{ steps.bump.outputs.version }}
+          tag_name: ${{ steps.bump.outputs.version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        # Now that we have successfully built, bundled, signed, and released,
+        # let's push the version bump commit to persist it.
+      - uses: EndBug/add-and-commit@v9
+        if: ${{ github.event_name == 'push' }}
+        with:
+          # add: "latest.json"
+          # commit: "--amend --no-edit"
+          default_author: github_actions
