@@ -501,7 +501,7 @@ in {
             --target ${rustTarget} \
             ${
               lib.optionalString ((rustTarget == "aarch64-apple-darwin")
-                || (rustTarget == "x86_64-apple-darwin")) "--bundles app \\"
+                || (rustTarget == "x86_64-apple-darwin")) "--bundles app,dmg \\"
             }
             ${
               lib.optionalString (isWindowsGnu || isWindowsMsvc)
