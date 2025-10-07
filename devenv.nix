@@ -676,12 +676,14 @@ in {
       (cd ${config.env.QUASAR_ROOT} && exec "$@")
     '';
 
+    get-latest-git-tag.exec = "git describe --tags --abbrev=0 2>/dev/null || echo ";
+
     prepare-release = {
       exec = ''
         set -euo pipefail
 
         if [ $# -ne 2 ]; then
-          echo "Usage: $0 <version> <out-dir>"
+          echo "Usage: $0 <version> <out-dir> [<last-tag>]"
           exit 1
         fi
 
@@ -689,8 +691,11 @@ in {
         OUT_DIR="$2"
         PUB_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-        # Find the most recent tag (if any)
-        LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        if [ -n "$3" ]; then
+          LAST_TAG="$3"
+        else
+          LAST_TAG=$(get-latest-git-tag)
+        fi
 
         if [ -n "$LAST_TAG" ]; then
           NOTES=$(git log --pretty=format:"%s" "$LAST_TAG"..HEAD)
