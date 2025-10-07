@@ -21,6 +21,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # fetch full history including tags
 
       - uses: cachix/install-nix-action@v31
       - uses: cachix/cachix-action@v16
