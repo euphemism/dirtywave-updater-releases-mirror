@@ -682,7 +682,7 @@ in {
       exec = ''
         set -euo pipefail
 
-        if [ $# -ne 2 ]; then
+        if [ $# -lt 2 ] || [ $# -gt 3 ]; then
           echo "Usage: $0 <version> <out-dir> [<last-tag>]"
           exit 1
         fi
@@ -691,10 +691,10 @@ in {
         OUT_DIR="$2"
         PUB_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-        if [ -n "$3" ]; then
+        if [ -n "''${3-}" ]; then
           LAST_TAG="$3"
         else
-          LAST_TAG=$(get-latest-git-tag)
+          LAST_TAG="$(get-latest-git-tag)"
         fi
 
         if [ -n "$LAST_TAG" ]; then
