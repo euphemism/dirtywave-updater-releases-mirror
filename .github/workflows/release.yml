@@ -137,8 +137,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-        # Now that we have successfully built, bundled, signed, and released,
-        # let's push the version bump commit to persist it.
+      # - name: Mirror GitHub Release to Updater (public)
+      #   uses: softprops/action-gh-release@v2
+      #   with:
+      #     repository: Dirtywave/Updater
+      #     token: ${{ secrets.UPDATER_TOKEN }}
+      #     files: |
+      #       ${{ steps.sign-updater.outputs.signature }}
+      #       ${{ steps.locate-dmg.outputs.dmg }}
+      #       ${{ steps.bundle.outputs.out }}/macos/Dirtywave Updater.app.tar.gz
+      #       ${{ steps.prep.outputs.latest-json }}
+      #     generate_release_notes: true
+      #     name: Release ${{ steps.bump.outputs.version }}
+      #     tag_name: ${{ steps.bump.outputs.version }}
+
+      # Now that we have successfully built, bundled, signed, and released,
+      # let's push the version bump commit to persist it.
       - uses: EndBug/add-and-commit@v9
         if: ${{ github.event_name == 'push' }}
         with:
