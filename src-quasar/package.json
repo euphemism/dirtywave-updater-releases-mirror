@@ -1,6 +1,6 @@
 {
 	"name": "dirtywave-updater",
-	"version": "0.2.5",
+	"version": "0.2.6",
 	"description": "A firmware uploading tool for the Dirtywave M8 Tracker",
 	"productName": "Dirtywave Updater",
 	"author": "Nicholas Sidwell <nicholas@sidwell.dev>",
