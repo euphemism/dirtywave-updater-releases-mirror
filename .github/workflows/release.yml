@@ -145,4 +145,5 @@ jobs:
           commit: "--amend --no-edit"
           default_author: github_actions
           message: "feat: release ${{ steps.bump.outputs.version }}"
+          push: true
           tag: ${{ steps.bump.outputs.version }}
