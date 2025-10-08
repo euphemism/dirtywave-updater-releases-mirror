@@ -827,15 +827,22 @@ in {
         for entry in "''${PLATFORMS[@]}"; do
           name="''${entry%%:*}"
           rest="''${entry#*:}"
-          sig_file="''${rest%%:*}"
+          sig_spec="''${rest%%:*}"
           filename="''${rest#*:}"
 
-          if [ ! -f "$sig_file" ]; then
-            echo "Signature file not found: $sig_file" >&2
-            exit 1
+          if [[ "$sig_spec" == base64=* ]]; then
+            # Already a base64 blob
+            signature="''${sig_spec#base64=}"
+          else
+            # Treat as a file path
+            if [ ! -f "$sig_spec" ]; then
+              echo "Signature file not found: $sig_spec" >&2
+
+              exit 1
+            fi
+            signature=$(base64 -w0 < "$sig_spec")
           fi
 
-          signature=$(base64 -w0 < "$sig_file")
           url="$BASE_URL/$filename"
 
           PLATFORMS_JSON=$(jq \
@@ -861,6 +868,7 @@ in {
           }' > "$LATEST_JSON"
 
         echo "Generated latest.json release metadata for $VERSION" >&2
+
         echo "$LATEST_JSON"
       '';
 
@@ -1037,7 +1045,7 @@ in {
           then
             echo "Signed $FILE -> $OUT_DIR/''${fname}.sig" >&2
 
-            echo "$OUT_DIR/''${fname}.sig"
+            base64 -w0 "$sig_path"
           else
             echo "ERROR: signing failed for $FILE" >&2
 
