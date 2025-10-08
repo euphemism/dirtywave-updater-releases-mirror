@@ -1035,6 +1035,8 @@ in {
           fname=$(basename "$FILE")
           trusted_comment="timestamp:''${ts}\tfile:''${fname}"
 
+          sig_path="$OUT_DIR/$fname.sig"
+
           if minisign -S \
               -x "$OUT_DIR/''${fname}.sig" \
               -s "$seckey_file" \
@@ -1043,7 +1045,7 @@ in {
               -m "$FILE" \
               <<<"$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" 2>/dev/null
           then
-            echo "Signed $FILE -> $OUT_DIR/''${fname}.sig" >&2
+            echo "Signed $FILE -> $sig_path" >&2
 
             base64 -w0 "$sig_path"
           else
