@@ -673,9 +673,9 @@ in {
         targets;
 
 
+        # let build =  /nix/store/ynna0gjd792pydxjw1f3f767hjhpa32m-dirtywave-updater-0.2.2; #config.outputs.dirtywave-updater.build.${name};
       bundle = pkgs.lib.mapAttrs (name: target:
-        let build =  /nix/store/ynna0gjd792pydxjw1f3f767hjhpa32m-dirtywave-updater-0.2.2; #config.outputs.dirtywave-updater.build.${name};
-        # let build = config.outputs.dirtywave-updater.build.${name};
+        let build = config.outputs.dirtywave-updater.build.${name};
         in assert validateTarget name target; bundleForTarget target build)
         targets;
     };
