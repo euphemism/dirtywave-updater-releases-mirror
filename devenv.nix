@@ -243,6 +243,8 @@ in {
           inputs.bun2nix.packages."${pkgs.stdenv.system}".default
           pkgs.makeWrapper
           pkgs.pkg-config
+        ] ++ lib.optionals stdenv.hostPlatform.isDarwin [
+          pkgs.darwin.DarwinTools # Provides sw_vers, "needed" (wanted) for building MacOS app
         ] ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux
           [ pkgs.wrapGAppsHook4 ]
           ++ lib.optionals isWindowsMsvc [ pkgs.cargo-xwin pkgs.lld pkgs.nsis ];
@@ -394,7 +396,11 @@ in {
           runHook postInstall
         '';
 
-        cargoHash = "sha256-yMTTW9vYUZLgMUjvsCCEJBGKCH9gGmumganNZRFEyis="; # sha256-P+WcPc+ljG/oLT9+pU48zEpuRtPOvkChIn9EAvho7Rk=";
+        # cargoHash = "sha256-yMTTW9vYUZLgMUjvsCCEJBGKCH9gGmumganNZRFEyis="; # sha256-P+WcPc+ljG/oLT9+pU48zEpuRtPOvkChIn9EAvho7Rk=";
+
+        cargoLock = {
+          lockFile = ./src-tauri/Cargo.lock;
+        };
 
         bunNodeModules =
           inputs.bun2nix.lib."${pkgs.stdenv.system}".mkBunNodeModules {
