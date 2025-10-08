@@ -18,6 +18,7 @@ in {
   # so the environment variable ends up containing the literal $HOME
   # string instead of the expanded/resolved value of the user's home directory.
   # Because of this, we're setting the variable from the context of the shell.
+  # trace: [ "binary" "description" "exec" "package" "packages" "scriptPackage" ]
   enterShell = ''
     export SOPS_AGE_KEY_FILE=$HOME/.config/age/identities.txt
   '';
@@ -450,6 +451,58 @@ in {
         #     cp -r ${buildDrv}/share $out/
         #   ''
         # else
+        hdiutilWrapper = pkgs.writeShellScriptBin "hdiutil" ''
+          echo "Running wrapper script"
+          exec /usr/bin/hdiutil "$@"
+        '';
+
+        setFileShim = pkgs.writeShellScriptBin "SetFile" ''
+          # Fake SetFile wrapper using xattr
+          # Supports:
+          #   SetFile -c icnC "$MOUNT_DIR/.VolumeIcon.icns"
+          #   SetFile -a C "$MOUNT_DIR"
+
+          if [[ $# -lt 2 ]]; then
+            echo "usage: SetFile <flags> <target>" >&2
+            exit 1
+          fi
+
+          flag="$1"; shift
+
+          case "$flag" in
+            -c)
+              typecode="$1"; shift
+              target="$1"; shift
+              if [[ "$typecode" == "icnC" ]]; then
+                # No-op: Finder doesn't require type codes anymore.
+                if [[ ! -f "$target" ]]; then
+                  echo "error: icon file not found: $target" >&2
+                  exit 1
+                fi
+              else
+                echo "warning: unhandled type code $typecode" >&2
+              fi
+              ;;
+
+            -a)
+              attrs="$1"; shift
+              target="$1"; shift
+              if [[ "$attrs" == *C* ]]; then
+                # Set the “has custom icon” bit in FinderInfo
+                xattr -wx com.apple.FinderInfo \
+                  "0000000000000000000000000000000000000000000000000000000000000400" \
+                  "$target"
+              else
+                echo "warning: unhandled attribute flags $attrs" >&2
+              fi
+              ;;
+
+            *)
+              echo "error: unsupported SetFile invocation: $flag $*" >&2
+              exit 1
+              ;;
+          esac
+        '';
       in pkgs.stdenv.mkDerivation {
         pname = "dirtywave-updater-bundle";
         version = application-version;
@@ -466,9 +519,17 @@ in {
               '';
             })
             pkgs.darwin.xattr
+            pkgs.darwin.DarwinTools # Provides sw_vers, needed for bundling MacOS DMGs
+            pkgs.perl
+            hdiutilWrapper
+            setFileShim
           ] ++ lib.optionals (isWindowsGnu || isWindowsMsvc) [ pkgs.nsis ];
 
         buildPhase = ''
+          echo "PATH is: $PATH"
+          type -a hdiutil || true
+          ls -l $(echo $PATH | tr ':' ' ')
+
           mkdir -p .bin
 
           ${lib.optionalString (isWindowsGnu || isWindowsMsvc) ''
@@ -496,12 +557,15 @@ in {
           export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${dummyUpdaterSecrets.password}"
           export TAURI_SIGNING_PRIVATE_KEY="${dummyUpdaterSecrets.privateKey}"
 
+          # --skip-jenkins # skip Finder-prettifying AppleScript, useful in Sandbox and non-GUI environments \
+          export CI=true
+
           cargo-tauri bundle \
             --config '{ "bundle": { "useLocalToolsDir": true }, "plugins": { "updater": { "pubkey": "${dummyUpdaterSecrets.publicKey}" } } }' \
             --target ${rustTarget} \
             ${
               lib.optionalString ((rustTarget == "aarch64-apple-darwin")
-                || (rustTarget == "x86_64-apple-darwin")) "--bundles app,dmg \\"
+                || (rustTarget == "x86_64-apple-darwin")) "--bundles app,dmg -v \\"
             }
             ${
               lib.optionalString (isWindowsGnu || isWindowsMsvc)
@@ -608,8 +672,10 @@ in {
         (name: target: assert validateTarget name target; buildForTarget target)
         targets;
 
+
       bundle = pkgs.lib.mapAttrs (name: target:
-        let build = config.outputs.dirtywave-updater.build.${name};
+        let build =  /nix/store/ynna0gjd792pydxjw1f3f767hjhpa32m-dirtywave-updater-0.2.2; #config.outputs.dirtywave-updater.build.${name};
+        # let build = config.outputs.dirtywave-updater.build.${name};
         in assert validateTarget name target; bundleForTarget target build)
         targets;
     };
@@ -672,11 +738,41 @@ in {
       sops exec-env $TAURI_UPDATER_KEY_FILE 'tauri-cli build --target aarch64-apple-darwin'
     '';
 
+    bundle-macos-dmg = {
+      exec = ''
+        set -euo pipefail
+
+        APP_PATH="$1"   # e.g. result/MyApp.app
+        DMG_NAME="$2"   # e.g. MyApp-1.2.3.dmg
+
+        # Create a staging dir
+        WORKDIR="$(mktemp -d)"
+        trap 'rm -rf "$WORKDIR"' EXIT
+
+        cp -R "$APP_PATH" "$WORKDIR/"
+
+        # Use hdiutil to build the DMG
+        /usr/bin/hdiutil create \
+          -volname "MyApp" \
+          -srcfolder "$WORKDIR" \
+          -ov -format UDZO "$DMG_NAME"
+
+        echo "DMG created at $DMG_NAME"
+      '';
+
+      packages = [pkgs.cargo-tauri];
+    };
+
     frontend.exec = ''
       (cd ${config.env.QUASAR_ROOT} && exec "$@")
     '';
 
     get-latest-git-tag.exec = "git describe --tags --abbrev=0 2>/dev/null || echo ";
+
+    hdiutil.exec = ''
+    echo "Running wrapper script"
+    exec /usr/bin/hdiutil "$@"
+    '';
 
     prepare-release = {
       exec = ''

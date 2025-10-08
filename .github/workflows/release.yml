@@ -104,13 +104,25 @@ jobs:
         run: |
           prepare-release ${{ steps.bump.outputs.version }} ${{ steps.bundle.outputs.out }} ${{ steps.get-latest-git-tag.outputs.latest }}
 
+      - name: Locate DMG
+        id: locate-dmg
+        run: |
+          set -euo pipefail
+          dmg_path="$(find "${{ steps.bundle.outputs.out }}/dmg" -maxdepth 1 -type f -name '*.dmg' | head -n1)"
+          if [ -z "$dmg_path" ]; then
+            echo "No DMG found!" >&2
+            exit 1
+          fi
+          echo "Found DMG: $dmg_path"
+          echo "dmg=$dmg_path" >> "$GITHUB_OUTPUT"
+
       # Create GitHub Release with artifacts
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             ${{ runner.temp }}/Dirtywave Updater.app.tar.gz.sig
-            ${{ steps.bundle.outputs.out }}/macos/Dirtywave Updater.dmg
+            ${{ steps.locate-dmg.outputs.dmg }}
             ${{ steps.bundle.outputs.out }}/macos/Dirtywave Updater.app.tar.gz
             latest.json
           generate_release_notes: true
