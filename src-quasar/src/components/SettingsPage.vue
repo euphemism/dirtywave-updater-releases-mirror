@@ -6,6 +6,7 @@ import { getCssVar, QCheckbox } from 'quasar';
 import { useDistanceToElements } from 'src/composables';
 import { colorTween } from 'src/utils';
 import { computed, ref, useTemplateRef } from 'vue';
+import packageJson from '../../package.json';
 
 const emit = defineEmits<{
   'close': []
@@ -53,7 +54,7 @@ const automaticUpdatesEnabledCheckboxStyle = computed(() => ({
           </q-item-section>
 
           <q-item-section avatar>
-            <VersionNumber version="3.49.3" />
+            <VersionNumber :version="packageJson['version']" />
           </q-item-section>
         </q-item>
 

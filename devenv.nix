@@ -394,8 +394,7 @@ in {
           runHook postInstall
         '';
 
-        cargoHash =
-          "sha256-ElwZcYpR6QxGUbteCDGc9iT6gJ8UJ2ffC7tEdt8OQd4="; # sha256-P+WcPc+ljG/oLT9+pU48zEpuRtPOvkChIn9EAvho7Rk=";
+        cargoHash = "sha256-yMTTW9vYUZLgMUjvsCCEJBGKCH9gGmumganNZRFEyis="; # sha256-P+WcPc+ljG/oLT9+pU48zEpuRtPOvkChIn9EAvho7Rk=";
 
         bunNodeModules =
           inputs.bun2nix.lib."${pkgs.stdenv.system}".mkBunNodeModules {
@@ -672,8 +671,6 @@ in {
         (name: target: assert validateTarget name target; buildForTarget target)
         targets;
 
-
-        # let build =  /nix/store/ynna0gjd792pydxjw1f3f767hjhpa32m-dirtywave-updater-0.2.2; #config.outputs.dirtywave-updater.build.${name};
       bundle = pkgs.lib.mapAttrs (name: target:
         let build = config.outputs.dirtywave-updater.build.${name};
         in assert validateTarget name target; bundleForTarget target build)
@@ -778,122 +775,185 @@ in {
       exec = ''
         set -euo pipefail
 
-        if [ $# -lt 2 ] || [ $# -gt 3 ]; then
-          echo "Usage: $0 <version> <out-dir> [<last-tag>]"
+        usage() {
+          echo "Usage: $0 --version <version> --out-dir <dir> [--last-tag <tag>] --platform <name>:<sig-file>:<filename> ..." >&2
           exit 1
+        }
+
+        VERSION=""
+        OUT_DIR=""
+        LAST_TAG=""
+        PLATFORMS=()
+
+        while [ $# -gt 0 ]; do
+          case "$1" in
+            --version)   VERSION="$2"; shift 2 ;;
+            --out-dir)   OUT_DIR="$2"; shift 2 ;;
+            --last-tag)  LAST_TAG="$2"; shift 2 ;;
+            --platform)  PLATFORMS+=("$2"); shift 2 ;;
+            --help|-h)   usage ;;
+            *) echo "Unknown option: $1" >&2; usage ;;
+          esac
+        done
+
+        if [ -z "$VERSION" ] || [ -z "$OUT_DIR" ] || [ ''${#PLATFORMS[@]} -eq 0 ]; then
+          echo "Missing required arguments" >&2
+          usage
         fi
 
-        VERSION="$1"
-        OUT_DIR="$2"
         PUB_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-        if [ -n "''${3-}" ]; then
-          LAST_TAG="$3"
-        else
-          LAST_TAG="$(get-latest-git-tag)"
+        if [ -z "$LAST_TAG" ]; then
+          LAST_TAG="$(get-latest-git-tag || true)"
         fi
 
         if [ -n "$LAST_TAG" ]; then
-          NOTES=$(git log --pretty=format:"%s" "$LAST_TAG"..HEAD)
-          if [ -z "$NOTES" ]; then
-            NOTES="No new commits since $LAST_TAG"
-          fi
+          NOTES=$(git log --pretty=format:"%s" "$LAST_TAG"..HEAD || true)
+          [ -z "$NOTES" ] && NOTES="No new commits since $LAST_TAG"
         else
           NOTES="Initial release"
         fi
 
-        # Escape notes safely for JSON
         NOTES_JSON=$(printf '%s' "$NOTES" | jq -Rs .)
 
-        # Create a new git tag for this version if it doesn't exist yet
-        if ! git rev-parse "''${VERSION}" >/dev/null 2>&1; then
-          git tag -a "''${VERSION}" -m "Release ''${VERSION}"
+        # Create a new git tag if it doesn't exist
+        if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
+          git tag -a "$VERSION" -m "Release $VERSION"
         fi
 
-        # Read the signature from the build output
-        SIG_FILE="''${OUT_DIR}/macos/Dirtywave Updater.app.tar.gz.sig"
+        BASE_URL="https://github.com/euphemism/dirtywave-updater-releases-mirror/releases/download/''${VERSION}"
 
-        if [ ! -f "''${SIG_FILE}" ]; then
-          echo "Signature file not found: ''${SIG_FILE}" >&2
-          exit 1
-        fi
+        PLATFORMS_JSON="{}"
+        for entry in "''${PLATFORMS[@]}"; do
+          name="''${entry%%:*}"
+          rest="''${entry#*:}"
+          sig_file="''${rest%%:*}"
+          filename="''${rest#*:}"
 
-        SIGNATURE=$(tr -d '\n' < "''${SIG_FILE}")
+          if [ ! -f "$sig_file" ]; then
+            echo "Signature file not found: $sig_file" >&2
+            exit 1
+          fi
 
-        URL="https://github.com/euphemism/dirtywave-updater-releases-mirror/releases/download/''${VERSION}/Dirtywave.Updater.app.tar.gz"
+          signature=$(base64 -w0 < "$sig_file")
+          url="$BASE_URL/$filename"
 
-        cat > latest.json <<EOF
-        {
-          "version": "''${VERSION}",
-          "notes": ''${NOTES_JSON},
-          "pub_date": "''${PUB_DATE}",
-          "platforms": {
-            "darwin-aarch64": {
-              "signature": "''${SIGNATURE}",
-              "url": "''${URL}"
-            }
-          }
-        }
-      EOF
+          PLATFORMS_JSON=$(jq \
+            --arg name "$name" \
+            --arg sig "$signature" \
+            --arg url "$url" \
+            '. + {($name): {signature: $sig, url: $url}}' \
+            <<<"$PLATFORMS_JSON")
+        done
 
-        echo "Generated latest.json for ''${VERSION}"
+        LATEST_JSON="$OUT_DIR/latest.json"
+
+        jq -n \
+          --arg version "$VERSION" \
+          --argjson notes "$NOTES_JSON" \
+          --arg pub_date "$PUB_DATE" \
+          --argjson platforms "$PLATFORMS_JSON" \
+          '{
+            version: $version,
+            notes: $notes,
+            pub_date: $pub_date,
+            platforms: $platforms
+          }' > "$LATEST_JSON"
+
+        echo "Generated latest.json release metadata for $VERSION" >&2
+        echo "$LATEST_JSON"
       '';
-      # set -euo pipefail
 
-      # if [ $# -ne 2 ]; then
-      #   echo "Usage: $0 <version> <out-dir>"
-      #   exit 1
-      # fi
-
-      # VERSION="$1"
-      # OUT_DIR="$2"
-      # PUB_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-
-      # # Find the most recent tag (if any)
-      # LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-
-      # if [ -n "$LAST_TAG" ]; then
-      #   NOTES=$(git log --pretty=format:"%s" "$LAST_TAG"..HEAD | sed ':a;N;$!ba;s/\n/\\n/g')
-      # else
-      #   NOTES="Initial release"
-      # fi
-
-      # # Create a new git tag for this version if it doesn't exist yet
-      # if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
-      #   git tag -a "$VERSION" -m "Release $VERSION"
-      # fi
-
-      # # Read the signature from the build output
-      # SIG_FILE="$OUT_DIR/macos/Dirtywave Updater.app.tar.gz.sig"
-
-      # if [ ! -f "$SIG_FILE" ]; then
-      #   echo "Signature file not found: $SIG_FILE" >&2
-
-      #   exit 1
-      # fi
-
-      # SIGNATURE=$(tr -d '\n' < "$SIG_FILE")
-
-      # URL="https://github.com/euphemism/dirtywave-updater-releases-mirror/releases/download/''${VERSION}/Dirtywave.Updater.app.tar.gz"
-
-      # cat > latest.json <<EOF
-      # {
-      #   "version": "''${VERSION}",
-      #   "notes": "''${NOTES}",
-      #   "pub_date": "''${PUB_DATE}",
-      #   "platforms": {
-      #     "darwin-aarch64": {
-      #       "signature": "''${SIGNATURE}",
-      #       "url": "''${URL}"
-      #     }
-      #   }
-      # }
-      # EOF
-
-      # echo "Generated latest.json for ''${VERSION}"
-
-      packages = [ pkgs.jq ];
+      packages = [ pkgs.jq pkgs.coreutils ];
     };
+
+    # prepare-release = {
+    #   exec = ''
+    #     set -euo pipefail
+
+    #     usage() {
+    #       echo "Usage: $0 --version <version> --out-dir <dir> --sig-file <file> [--last-tag <tag>]" >&2
+    #       exit 1
+    #     }
+
+    #     LAST_TAG=""
+    #     OUT_DIR=""
+    #     SIG_FILE=""
+    #     VERSION=""
+
+    #     while [ $# -gt 0 ]; do
+    #       case "$1" in
+    #         --last-tag)       LAST_TAG="$2"; shift 2 ;;
+    #         --out-dir)        OUT_DIR="$2"; shift 2 ;;
+    #         --sig-file)       SIG_FILE="$2"; shift 2 ;;
+    #         --version)        VERSION="$2"; shift 2 ;;
+    #         --help|-h)        usage ;;
+    #         *) echo "Unknown option: $1" >&2; usage ;;
+    #       esac
+    #     done
+
+    #     if [ -z "$VERSION" ] || [ -z "$OUT_DIR" ] || [ -z "$SIG_FILE" ]; then
+    #       echo "Missing required arguments" >&2
+    #       usage
+    #     fi
+
+    #     PUB_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+    #     if [ -z "$LAST_TAG" ]; then
+    #       LAST_TAG="$(get-latest-git-tag || true)"
+    #     fi
+
+    #     if [ -n "$LAST_TAG" ]; then
+    #       NOTES=$(git log --pretty=format:"%s" "$LAST_TAG"..HEAD || true)
+    #       [ -z "$NOTES" ] && NOTES="No new commits since $LAST_TAG"
+    #     else
+    #       NOTES="Initial release"
+    #     fi
+
+    #     NOTES_JSON=$(printf '%s' "$NOTES" | jq -Rs .)
+
+    #     # Create a new git tag if it doesn't exist
+    #     if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
+    #       git tag -a "$VERSION" -m "Release $VERSION"
+    #     fi
+
+    #     if [ ! -f "$SIG_FILE" ]; then
+    #       echo "Signature file not found: $SIG_FILE" >&2
+    #       exit 1
+    #     fi
+
+    #     # Base64 encode the entire minisign .sig file (comments + payload)
+    #     SIGNATURE=$(base64 -w0 < "$SIG_FILE")
+
+    #     URL="https://github.com/euphemism/dirtywave-updater-releases-mirror/releases/download/${VERSION}/Dirtywave.Updater.app.tar.gz"
+
+    #   LATEST_JSON="$OUT_DIR/latest.json"
+
+    #   jq -n \
+    #     --arg version "$VERSION" \
+    #     --argjson notes "$NOTES_JSON" \
+    #     --arg pub_date "$PUB_DATE" \
+    #     --arg signature "$SIGNATURE" \
+    #     --arg url "$URL" \
+    #     '{
+    #       version: $version,
+    #       notes: $notes,
+    #       pub_date: $pub_date,
+    #       platforms: {
+    #         "darwin-aarch64": {
+    #           signature: $signature,
+    #           url: $url
+    #         }
+    #       }
+    #     }' > "$LATEST_JSON"
+
+    #     echo "Generated latest.json for ''${VERSION}" >&2
+
+    #     echo "$LATEST_JSON"
+    #   '';
+
+    #   packages = [ pkgs.jq coreutils ];
+    # };
 
     quasar-cli.exec = ''frontend bunx @quasar/cli "$@"'';
 
@@ -975,7 +1035,9 @@ in {
               -m "$FILE" \
               <<<"$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" 2>/dev/null
           then
-            echo "Signed $FILE -> $OUT_DIR/''${fname}.sig"
+            echo "Signed $FILE -> $OUT_DIR/''${fname}.sig" >&2
+
+            echo "$OUT_DIR/''${fname}.sig"
           else
             echo "ERROR: signing failed for $FILE" >&2
 

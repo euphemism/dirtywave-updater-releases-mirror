@@ -19,7 +19,7 @@ pub mod state;
 pub mod updater;
 
 fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
-    let app_handle = app.app_handle();
+    let app_handle = app.handle();
 
     log::info!(
         "{}",
@@ -30,7 +30,15 @@ fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
             .to_str()
             .unwrap()
     );
+
     app_handle.manage(AppState::new(AppStateData::default()));
+
+    let updater_app_handle = app_handle.clone();
+
+    tauri::async_runtime::spawn(async move {
+        log::info!("invoking the updater bit");
+        crate::updater::app_updates::update(updater_app_handle.clone()).await.unwrap();
+    });
 
     firmware::setup_firmware_store(app_handle)?;
 
@@ -39,11 +47,6 @@ fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         use tauri_plugin_deep_link::DeepLinkExt;
         app.deep_link().register_all()?;
     }
-
-    // TODO: Commented out 2025-08-30 while getting application booting again
-    // tauri::async_runtime::spawn(async move {
-    //     crate::updater::app_updates::update(handle).await.unwrap();
-    // });
 
     setup_event_listeners(Arc::new(app_handle.clone()));
 
@@ -241,7 +244,7 @@ pub fn run() {
     #[cfg(desktop)]
     {
         builder = builder
-            // .plugin(tauri_plugin_updater::Builder::new().build())
+            .plugin(tauri_plugin_updater::Builder::new().build())
             .plugin(tauri_plugin_window_state::Builder::default().build());
     }
 
