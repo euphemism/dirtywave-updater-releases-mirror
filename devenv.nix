@@ -808,8 +808,8 @@ in {
         fi
 
         if [ -n "$LAST_TAG" ]; then
-          NOTES=$(git log --pretty=format:"%s" "$LAST_TAG"..HEAD || true)
-          [ -z "$NOTES" ] && NOTES="No new commits since $LAST_TAG"
+          NOTES=$(git log --pretty=format:"%s" "$LAST_TAG"..$VERSION \
+            | grep -vE '^feat: release [0-9]+\.[0-9]+\.[0-9]+$' || true)
         else
           NOTES="Initial release"
         fi
