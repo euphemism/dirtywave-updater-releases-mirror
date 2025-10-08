@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0  # fetch full history including tags
+          fetch-depth: 0 # fetch full history including tags
 
       - uses: cachix/install-nix-action@v31
       - uses: cachix/cachix-action@v16
@@ -79,7 +79,6 @@ jobs:
           default_author: github_actions
           message: "feat: release ${{ steps.bump.outputs.version }}"
           push: false
-          tag: ${{ steps.bump.outputs.version }}
 
       - name: Build app
         id: build
@@ -94,15 +93,22 @@ jobs:
           echo "out=$OUT" >> $GITHUB_OUTPUT
 
       - name: Sign application updater
+        id: sign-updater
         run: |
-          sign-updater --out-dir "$RUNNER_TEMP" "${{ steps.bundle.outputs.out }}/macos/Dirtywave Updater.app.tar.gz"
+          SIGNATURE=$(sign-updater --out-dir "$RUNNER_TEMP" "${{ steps.bundle.outputs.out }}/macos/Dirtywave Updater.app.tar.gz")
+          echo "signature=$SIGNATURE" >> "$GITHUB_OUTPUT"
         env:
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
 
       - name: Prepare release
         id: prep
         run: |
-          prepare-release ${{ steps.bump.outputs.version }} ${{ steps.bundle.outputs.out }} ${{ steps.get-latest-git-tag.outputs.latest }}
+          LATEST_JSON=$(prepare-release \
+          --last-tag "${{ steps.get-latest-git-tag.outputs.latest }}" \
+          --out-dir "${{ steps.bundle.outputs.out }}" \
+          --platform darwin-aarch64:"${{ steps.sign-updater.outputs.signature }}":"Dirtywave.Updater.app.tar.gz" \
+          --version "${{ steps.bump.outputs.version }}")
+          echo "latest-json=$LATEST_JSON" >> "$GITHUB_OUTPUT"
 
       - name: Locate DMG
         id: locate-dmg
@@ -121,10 +127,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ${{ runner.temp }}/Dirtywave Updater.app.tar.gz.sig
+            ${{ steps.sign-updater.outputs.signature }}
             ${{ steps.locate-dmg.outputs.dmg }}
             ${{ steps.bundle.outputs.out }}/macos/Dirtywave Updater.app.tar.gz
-            latest.json
+            ${{ steps.prep.outputs.latest-json }}
           generate_release_notes: true
           name: Release ${{ steps.bump.outputs.version }}
           tag_name: ${{ steps.bump.outputs.version }}
@@ -139,3 +145,4 @@ jobs:
           commit: "--amend --no-edit"
           default_author: github_actions
           message: "feat: release ${{ steps.bump.outputs.version }}"
+          tag: ${{ steps.bump.outputs.version }}
