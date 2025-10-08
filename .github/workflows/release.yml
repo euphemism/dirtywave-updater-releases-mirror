@@ -106,7 +106,7 @@ jobs:
           LATEST_JSON=$(prepare-release \
           --last-tag "${{ steps.get-latest-git-tag.outputs.latest }}" \
           --out-dir "${{ steps.bundle.outputs.out }}" \
-          --platform darwin-aarch64:"${{ steps.sign-updater.outputs.signature }}":"Dirtywave.Updater.app.tar.gz" \
+          --platform darwin-aarch64:"base64=${{ steps.sign-updater.outputs.signature }}":"Dirtywave.Updater.app.tar.gz" \
           --version "${{ steps.bump.outputs.version }}")
           echo "latest-json=$LATEST_JSON" >> "$GITHUB_OUTPUT"
 
