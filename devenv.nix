@@ -1038,16 +1038,18 @@ in {
           sig_path="$OUT_DIR/$fname.sig"
 
           if minisign -S \
-              -x "$OUT_DIR/''${fname}.sig" \
+              -x "$sig_path" \
               -s "$seckey_file" \
               -c "signature from tauri secret key" \
               -t "$trusted_comment" \
               -m "$FILE" \
-              <<<"$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" 2>/dev/null
+              <<<"$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
+              >/dev/null 2>&1
           then
             echo "Signed $FILE -> $sig_path" >&2
 
-            base64 -w0 "$sig_path"
+            echo "$sig_path"
+            # base64 -w0 "$sig_path"
           else
             echo "ERROR: signing failed for $FILE" >&2
 
