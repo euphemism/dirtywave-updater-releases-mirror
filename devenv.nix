@@ -256,9 +256,6 @@ in {
         version = application-version;
         src = lib.cleanSource ./.;
 
-        # No manual --target; stdenv drives it
-        # cargoBuildFlags = [ "--target" rustTarget ];
-        # tauriBuildFlags = [ "--no-bundle" "--target" rustTarget ];
         doCheck = false;
         dontTauriInstall = true;
         dontPatchElf = isWindowsGnu || isWindowsMsvc;
@@ -279,11 +276,6 @@ in {
               --add-flags "$real"
           done
         '';
-
-        # postPatch = ''
-        #   rsync -a --links --chmod=ugo+w ${finalAttrs.bunNodeModules}/node_modules/ src-quasar/node_modules/
-        #   patchShebangs src-quasar/node_modules
-        # '';
 
         buildInputs = lib.optionals isWindowsGnu [
           winPkgs.buildPackages.gcc
@@ -307,17 +299,6 @@ in {
           export AR_x86_64_pc_windows_gnu="${winPkgs.buildPackages.gcc}/bin/x86_64-w64-mingw32-ar"
         '';
 
-        # Use Tauri build hook explicitly
-        # buildPhase = ''
-        #   runHook preBuild
-
-        #   # mkdir -p .cargo
-        #   # cp ''${cargoConfig} .cargo/config.toml
-
-        #   tauriBuildHook
-        #   runHook postBuild
-        # '';
-        # Explicit cargo/tauri invocation with the desired target
         buildPhase = let
           #--config '{ "build": { "beforeBuildCommand": "", "beforeDevCommand": "" } }' ''
           adHocTauriConfig = pkgs.writeTextFile {
@@ -394,8 +375,6 @@ in {
           runHook postInstall
         '';
 
-        # cargoHash = "sha256-yMTTW9vYUZLgMUjvsCCEJBGKCH9gGmumganNZRFEyis="; # sha256-P+WcPc+ljG/oLT9+pU48zEpuRtPOvkChIn9EAvho7Rk=";
-
         cargoLock = {
           lockFile = ./src-tauri/Cargo.lock;
         };
@@ -404,22 +383,6 @@ in {
           inputs.bun2nix.lib."${pkgs.stdenv.system}".mkBunNodeModules {
             packages = import ./src-quasar/bun.nix;
           };
-
-        # nativeBuildInputs = [
-        #   pkgs.bun
-        #   pkgs.cargo-tauri.hook
-        #   pkgs.makeWrapper
-        #   # pkgs.nodejs
-        #   pkgs.pkg-config
-        #   pkgs.rsync
-        # ] ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux
-        #   [ pkgs.wrapGAppsHook4 ];
-
-        # buildInputs = lib.optionals pkgs.stdenv.hostPlatform.isLinux [
-        #   pkgs.glib-networking
-        #   pkgs.openssl
-        #   pkgs.webkitgtk_4_1
-        # ];
 
         cargoRoot = "src-tauri";
 
@@ -445,15 +408,7 @@ in {
 
           password = "";
         };
-        # if isWindowsGnu && isDarwin then
-        # # Skip bundling Windows on macOS, just copy the exe + resources
-        #   pkgs.runCommand "dirtywave-updater-bundle-skip" { } ''
-        #     echo "Skipping Windows bundling on macOS; producing exe + resources only."
-        #     mkdir -p $out
-        #     cp -r ${buildDrv}/bin $out/
-        #     cp -r ${buildDrv}/share $out/
-        #   ''
-        # else
+
         hdiutilWrapper = pkgs.writeShellScriptBin "hdiutil" ''
           echo "Running wrapper script"
           exec /usr/bin/hdiutil "$@"
@@ -587,80 +542,6 @@ in {
           fi
         '';
       };
-
-    # # Bundle derivation (pure, with dummy updater keys)
-    # bundleForTarget = let
-
-    #   # Dummy minisign keypair for pure builds (do not use for production)
-    #   # These are plain strings checked into the store; safe only for dummy use.
-    #   # pubkey format is the full minisign public key line (base64), private key is the full minisign secret key file content.
-    #   dummyUpdaterSecrets = {
-    #     publicKey =
-    #       "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI3MDYyQzU3MzI3Mjc4OEYKUldTUGVISXlWeXdHdC8zajRaa2QvWHZ1elpIZTVrOU1LUGNlMDVRZDVBQlhkd0Z4TDNpc1pjdkoK";
-
-    #     privateKey =
-    #       "dW50cnVzdGVkIGNvbW1lbnQ6IHJzaWduIGVuY3J5cHRlZCBzZWNyZXQga2V5ClJXUlRZMEl5ekZuOVEvYmlVc2FScmthOVFVVmhDRWN0NE9BOG83ZWYvY1F1djlpeTdKOEFBQkFBQUFBQUFBQUFBQUlBQUFBQWc4Y3hObUFNZEpjT3o3OStWaWZhVXFGalVscGxYVm43RlU3cW1FanpJMWtMSElFWWxRUlBydVV0T2VWYmJWVllDakJHRUZxUzl3VHpjOG45RDQ3U1hWRkNLNlpHNTZBZDROWVV5RFZtQTAzdkJuZUNodVk4Z3JHSEU4emRBNzI5cDl4OXA3ZGhwSGs9Cg==";
-
-    #     password = "";
-    #   };
-    # in { rustTarget, system }:
-    # buildDrv:
-    # pkgs.stdenv.mkDerivation {
-    #   pname = "dirtywave-updater-bundle";
-    #   version = "0.1.0";
-    #   system = system;
-
-    #   src = buildDrv; # config.outputs.build.${system};
-
-    #   nativeBuildInputs = [ pkgs.cargo pkgs.rustc pkgs.cargo-tauri ]
-    #     ++ lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
-    #       # No-op codesign during pure builds
-    #       (pkgs.writeShellApplication {
-    #         name = "codesign";
-    #         text = ''
-    #           echo "Skipping codesign (pure build)"
-    #           exit 0
-    #         '';
-    #       })
-    #       pkgs.darwin.xattr
-    #     ];
-
-    #   buildPhase = ''
-    #     cp -r $src/share/build/* .
-    #     chmod -R u+w .
-
-    #     mkdir -p src-tauri/target/${rustTarget}/release
-    #     cp $src/bin/dirtywave-updater src-tauri/target/${rustTarget}/release/
-
-    #       # Export dummy updater signing secrets to satisfy Tauri updater plugin.
-    #       # We sign For Real™ in a later step of the process.
-    #       export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${dummyUpdaterSecrets.password}"
-    #       export TAURI_SIGNING_PRIVATE_KEY="${dummyUpdaterSecrets.privateKey}"
-
-    #     cargo-tauri bundle \
-    #       --bundles app \
-    #       --target ${rustTarget} \
-    #       --config '{ "plugins": { "updater": { "pubkey": "${dummyUpdaterSecrets.publicKey}" } } }'
-    #   '';
-
-    #   installPhase = ''
-    #     mkdir -p $out
-
-    #     # Copy the bundled application to output
-    #     if [ -d "src-tauri/target/${rustTarget}/release/bundle" ]; then
-    #       cp -r src-tauri/target/${rustTarget}/release/bundle/* $out/
-    #     else
-    #       echo "Bundle directory not found!"
-    #       find target -name "bundle" -type d || echo "No bundle directories found"
-    #       exit 1
-    #     fi
-    #   '';
-
-    #   meta = {
-    #     description = "Bundled Dirtywave Updater application";
-    #     platforms = lib.platforms.darwin ++ lib.platforms.linux;
-    #   };
-    # };
   in {
     # stdenv.hostPlatform.rust.rustcTarget -> "aarch64-apple-darwin"
     # To choose a different target by name, define stdenv.hostPlatform.rust.rustcTarget
@@ -878,94 +759,6 @@ in {
 
       packages = [ pkgs.jq pkgs.coreutils ];
     };
-
-    # prepare-release = {
-    #   exec = ''
-    #     set -euo pipefail
-
-    #     usage() {
-    #       echo "Usage: $0 --version <version> --out-dir <dir> --sig-file <file> [--last-tag <tag>]" >&2
-    #       exit 1
-    #     }
-
-    #     LAST_TAG=""
-    #     OUT_DIR=""
-    #     SIG_FILE=""
-    #     VERSION=""
-
-    #     while [ $# -gt 0 ]; do
-    #       case "$1" in
-    #         --last-tag)       LAST_TAG="$2"; shift 2 ;;
-    #         --out-dir)        OUT_DIR="$2"; shift 2 ;;
-    #         --sig-file)       SIG_FILE="$2"; shift 2 ;;
-    #         --version)        VERSION="$2"; shift 2 ;;
-    #         --help|-h)        usage ;;
-    #         *) echo "Unknown option: $1" >&2; usage ;;
-    #       esac
-    #     done
-
-    #     if [ -z "$VERSION" ] || [ -z "$OUT_DIR" ] || [ -z "$SIG_FILE" ]; then
-    #       echo "Missing required arguments" >&2
-    #       usage
-    #     fi
-
-    #     PUB_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-
-    #     if [ -z "$LAST_TAG" ]; then
-    #       LAST_TAG="$(get-latest-git-tag || true)"
-    #     fi
-
-    #     if [ -n "$LAST_TAG" ]; then
-    #       NOTES=$(git log --pretty=format:"%s" "$LAST_TAG"..HEAD || true)
-    #       [ -z "$NOTES" ] && NOTES="No new commits since $LAST_TAG"
-    #     else
-    #       NOTES="Initial release"
-    #     fi
-
-    #     NOTES_JSON=$(printf '%s' "$NOTES" | jq -Rs .)
-
-    #     # Create a new git tag if it doesn't exist
-    #     if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
-    #       git tag -a "$VERSION" -m "Release $VERSION"
-    #     fi
-
-    #     if [ ! -f "$SIG_FILE" ]; then
-    #       echo "Signature file not found: $SIG_FILE" >&2
-    #       exit 1
-    #     fi
-
-    #     # Base64 encode the entire minisign .sig file (comments + payload)
-    #     SIGNATURE=$(base64 -w0 < "$SIG_FILE")
-
-    #     URL="https://github.com/euphemism/dirtywave-updater-releases-mirror/releases/download/${VERSION}/Dirtywave.Updater.app.tar.gz"
-
-    #   LATEST_JSON="$OUT_DIR/latest.json"
-
-    #   jq -n \
-    #     --arg version "$VERSION" \
-    #     --argjson notes "$NOTES_JSON" \
-    #     --arg pub_date "$PUB_DATE" \
-    #     --arg signature "$SIGNATURE" \
-    #     --arg url "$URL" \
-    #     '{
-    #       version: $version,
-    #       notes: $notes,
-    #       pub_date: $pub_date,
-    #       platforms: {
-    #         "darwin-aarch64": {
-    #           signature: $signature,
-    #           url: $url
-    #         }
-    #       }
-    #     }' > "$LATEST_JSON"
-
-    #     echo "Generated latest.json for ''${VERSION}" >&2
-
-    #     echo "$LATEST_JSON"
-    #   '';
-
-    #   packages = [ pkgs.jq coreutils ];
-    # };
 
     quasar-cli.exec = ''frontend bunx @quasar/cli "$@"'';
 
