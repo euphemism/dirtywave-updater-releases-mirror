@@ -3,7 +3,7 @@
 let
   # Source of truth.
   # Automatically propagates to src-tauri/Cargo.toml and src-quasar/package.json
-  application-version = "0.3.2";
+  application-version = "0.3.3";
 
   pkgs-unstable = import inputs.nixpkgs-unstable {
     overlays = [ inputs.rust-overlay.overlays.default ];
