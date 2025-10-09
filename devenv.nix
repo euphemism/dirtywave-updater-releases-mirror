@@ -29,8 +29,10 @@ in {
     QUASAR_ROOT = "${config.env.DEVENV_ROOT}/src-quasar";
     ROOT_KEY_FILE = "${config.env.DEVENV_ROOT}/encrypted/root-key.sops.json";
     TAURI_ROOT = "${config.env.DEVENV_ROOT}/src-tauri";
-    APPLE_SIGNING_SECRETS_FILE = "${config.env.DEVENV_ROOT}/encrypted/apple-signing.sops.json";
-    TAURI_UPDATER_KEY_FILE = "${config.env.DEVENV_ROOT}/encrypted/tauri-updater.sops.json";
+    APPLE_SIGNING_SECRETS_FILE =
+      "${config.env.DEVENV_ROOT}/encrypted/apple-signing.sops.json";
+    TAURI_UPDATER_KEY_FILE =
+      "${config.env.DEVENV_ROOT}/encrypted/tauri-updater.sops.json";
   };
 
   languages = {
@@ -375,9 +377,7 @@ in {
           runHook postInstall
         '';
 
-        cargoLock = {
-          lockFile = ./src-tauri/Cargo.lock;
-        };
+        cargoLock = { lockFile = ./src-tauri/Cargo.lock; };
 
         bunNodeModules =
           inputs.bun2nix.lib."${pkgs.stdenv.system}".mkBunNodeModules {
@@ -484,10 +484,6 @@ in {
           ] ++ lib.optionals (isWindowsGnu || isWindowsMsvc) [ pkgs.nsis ];
 
         buildPhase = ''
-          echo "PATH is: $PATH"
-          type -a hdiutil || true
-          ls -l $(echo $PATH | tr ':' ' ')
-
           mkdir -p .bin
 
           ${lib.optionalString (isWindowsGnu || isWindowsMsvc) ''
@@ -523,7 +519,8 @@ in {
             --target ${rustTarget} \
             ${
               lib.optionalString ((rustTarget == "aarch64-apple-darwin")
-                || (rustTarget == "x86_64-apple-darwin")) "--bundles app,dmg -v \\"
+                || (rustTarget == "x86_64-apple-darwin"))
+              "--bundles app,dmg -v \\"
             }
             ${
               lib.optionalString (isWindowsGnu || isWindowsMsvc)
@@ -642,19 +639,15 @@ in {
         echo "DMG created at $DMG_NAME"
       '';
 
-      packages = [pkgs.cargo-tauri];
+      packages = [ pkgs.cargo-tauri ];
     };
 
     frontend.exec = ''
       (cd ${config.env.QUASAR_ROOT} && exec "$@")
     '';
 
-    get-latest-git-tag.exec = "git describe --tags --abbrev=0 2>/dev/null || echo ";
-
-    hdiutil.exec = ''
-    echo "Running wrapper script"
-    exec /usr/bin/hdiutil "$@"
-    '';
+    get-latest-git-tag.exec =
+      "git describe --tags --abbrev=0 2>/dev/null || echo ";
 
     prepare-release = {
       exec = ''
@@ -930,7 +923,6 @@ in {
       exec sops set $FILE \
         "[\"$KEY\"]" "\"$VALUE\""
     '';
-
 
     tauri-cli.exec = ''backend cargo-tauri "$@"'';
   };
