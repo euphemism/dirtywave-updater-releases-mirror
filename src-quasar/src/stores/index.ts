@@ -1,17 +1,6 @@
-import { createPinia } from 'pinia';
-import { defineStore } from '#q-app/wrappers';
-
-/*
- * When adding new properties to stores, you should also
- * extend the `PiniaCustomProperties` interface.
- * @see https://pinia.vuejs.org/core-concepts/plugins.html#typing-new-store-properties
- */
-declare module 'pinia' {
-	// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-	export interface PiniaCustomProperties {
-		// add your custom properties here, if any
-	}
-}
+import { createPinia } from "pinia";
+import { TauriPluginPinia } from "@tauri-store/pinia";
+import { defineStore } from "#q-app/wrappers";
 
 /*
  * If not building with SSR mode, you can
@@ -25,8 +14,7 @@ declare module 'pinia' {
 export default defineStore((/* { ssrContext } */) => {
 	const pinia = createPinia();
 
-	// You can add Pinia plugins here
-	// pinia.use(SomePiniaPlugin)
+	pinia.use(TauriPluginPinia());
 
 	return pinia;
 });

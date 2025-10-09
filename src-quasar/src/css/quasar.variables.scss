@@ -11,15 +11,36 @@
 // It's highly recommended to change the default colors
 // to match your app's branding.
 // Tip: Use the "Theme Builder" on Quasar's documentation website.
+@use "quasar/src/css/variables.sass" as q;
 
-// $primary : #00e5ff;
-// $secondary : #26A69A;
-// $accent : #9C27B0;
+$primary: #00e5ff;
+$secondary: q.$purple-12;
+$accent: q.$light-green-13;
 
-// $dark : #161616;
-$dark-page : #131313;
+// $primary : #a5ebee;
+// $secondary : #ed01ae;
+// $accent : #81f15e;
+
+$dark: #202020;
+$dark-page: #131313;
 
 // $positive : #21BA45;
-// $negative : #C10015;
+$negative: q.$pink-6;
 // $info : #31CCEC;
 // $warning : #F2C037;
+
+$dirty-white: #E6E6E6;
+
+$shadow-color: #424242;
+
+// :root {
+//   --q-primary: $primary !important;
+//   --q-secondary: $secondary !important;
+//   --q-accent: $accent !important;
+// //   --q-positive: #21BA45;
+//   --q-negative: $negative !important;
+// //   --q-info: #31CCEC;
+// //   --q-warning: #F2C037;
+//   --q-dark: $dark !important;
+//   --q-dark-page: $dark-page !important;
+// }

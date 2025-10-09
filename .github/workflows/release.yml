@@ -1,0 +1,164 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    runs-on: macos-latest
+
+    permissions:
+      attestations: write
+      contents: write
+
+    defaults:
+      run:
+        shell: devenv shell bash -- -e {0}
+
+    environment: release
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # fetch full history including tags
+
+      - uses: cachix/install-nix-action@v31
+      - uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+      - name: Install devenv.sh
+        run: nix profile add nixpkgs#devenv
+        shell: bash
+
+      - name: Disable git-hooks
+        run: |
+          echo '{ git-hooks.default_stages = ["manual"]; }' > devenv.local.nix
+        shell: bash
+
+      - name: Build devenv shell environment
+        id: prepare-devenv-shell
+        run: echo "devenv shell ready"
+
+      - name: Determine version bump
+        id: determine-bump
+        run: |
+          echo "type=patch" >> $GITHUB_OUTPUT
+          # TODO: Figure out how to dynamically determine bump type
+          # cat "$GITHUB_EVENT_PATH" | jq .
+
+          # LABELS=$(jq -r '.pull_request.labels[].name' < "$GITHUB_EVENT_PATH" || true)
+
+          # if echo "$LABELS" | grep -q "major"; then
+          #   echo "type=major" >> $GITHUB_OUTPUT
+          # elif echo "$LABELS" | grep -q "minor"; then
+          #   echo "type=minor" >> $GITHUB_OUTPUT
+          # else
+          #   echo "type=patch" >> $GITHUB_OUTPUT
+          # fi
+
+      - name: Get latest git tag
+        id: get-latest-git-tag
+        run: |
+          LATEST=$(get-latest-git-tag)
+          echo "Latest git tag: $LATEST" >&2
+          echo "latest=$LATEST" >> $GITHUB_OUTPUT
+
+      - name: Sync package versions
+        id: bump
+        run: |
+          echo "Received ${{ steps.determine-bump.outputs.type }} bump type"
+          VERSION=$(set-and-sync-package-versions ${{ steps.determine-bump.outputs.type }})
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - uses: EndBug/add-and-commit@v9
+        if: ${{ github.event_name == 'push' }}
+        with:
+          add: '["devenv.nix", "src-quasar/package.json", "src-tauri/Cargo.toml"]'
+          default_author: github_actions
+          message: "feat: release ${{ steps.bump.outputs.version }}"
+          push: false
+
+      - name: Build app
+        id: build
+        run: |
+          OUT=$(devenv build -v outputs.dirtywave-updater.build.macos)
+          echo "out=$OUT" >> $GITHUB_OUTPUT
+
+      - name: Bundle app
+        id: bundle
+        run: |
+          OUT=$(devenv build -v outputs.dirtywave-updater.bundle.macos)
+          echo "out=$OUT" >> $GITHUB_OUTPUT
+
+      - name: Sign application updater
+        id: sign-updater
+        run: |
+          SIGNATURE=$(sign-updater --out-dir "$RUNNER_TEMP" "${{ steps.bundle.outputs.out }}/macos/Dirtywave Updater.app.tar.gz")
+          echo "signature=$SIGNATURE" >> "$GITHUB_OUTPUT"
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+
+      - name: Prepare release
+        id: prep
+        run: |
+          LATEST_JSON=$(prepare-release \
+          --last-tag "${{ steps.get-latest-git-tag.outputs.latest }}" \
+          --out-dir "$RUNNER_TEMP" \
+          --platform darwin-aarch64:"${{ steps.sign-updater.outputs.signature }}":"Dirtywave.Updater.app.tar.gz" \
+          --version "${{ steps.bump.outputs.version }}")
+          echo "latest-json=$LATEST_JSON" >> "$GITHUB_OUTPUT"
+
+      - name: Locate DMG
+        id: locate-dmg
+        run: |
+          set -euo pipefail
+          dmg_path="$(find "${{ steps.bundle.outputs.out }}/dmg" -maxdepth 1 -type f -name '*.dmg' | head -n1)"
+          if [ -z "$dmg_path" ]; then
+            echo "No DMG found!" >&2
+            exit 1
+          fi
+          echo "Found DMG: $dmg_path"
+          echo "dmg=$dmg_path" >> "$GITHUB_OUTPUT"
+
+      # Now that we have successfully built, bundled, and signed,
+      # let's push the version bump commit to persist it.
+      - uses: EndBug/add-and-commit@v9
+        if: ${{ github.event_name == 'push' }}
+        with:
+          commit: "--amend --no-edit --allow-empty" # Re-uses the commit made earlier
+          default_author: github_actions
+          message: "feat: release ${{ steps.bump.outputs.version }}"
+          push: true
+          tag: ${{ steps.bump.outputs.version }}
+
+      # Create GitHub Release with artifacts
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ steps.sign-updater.outputs.signature }}
+            ${{ steps.locate-dmg.outputs.dmg }}
+            ${{ steps.bundle.outputs.out }}/macos/Dirtywave Updater.app.tar.gz
+            ${{ steps.prep.outputs.latest-json }}
+          generate_release_notes: true
+          name: Release ${{ steps.bump.outputs.version }}
+          tag_name: ${{ steps.bump.outputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # TODO
+      # - name: Mirror GitHub Release to Updater (public)
+      #   uses: softprops/action-gh-release@v2
+      #   with:
+      #     repository: Dirtywave/Updater
+      #     token: ${{ secrets.UPDATER_TOKEN }}
+      #     files: |
+      #       ${{ steps.sign-updater.outputs.signature }}
+      #       ${{ steps.locate-dmg.outputs.dmg }}
+      #       ${{ steps.bundle.outputs.out }}/macos/Dirtywave Updater.app.tar.gz
+      #       ${{ steps.prep.outputs.latest-json }}
+      #     generate_release_notes: true
+      #     name: Release ${{ steps.bump.outputs.version }}
+      #     tag_name: ${{ steps.bump.outputs.version }}
