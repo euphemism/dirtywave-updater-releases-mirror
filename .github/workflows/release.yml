@@ -1,12 +1,17 @@
 name: Release
 
 on:
-  push:
+  pull_request:
     branches:
-      - main
+      - release
+
+    types:
+      - closed
 
 jobs:
   release:
+    if: github.event.pull_request.merged == true
+
     runs-on: macos-latest
 
     permissions:
@@ -28,6 +33,7 @@ jobs:
       - uses: cachix/cachix-action@v16
         with:
           name: devenv
+
       - name: Install devenv.sh
         run: nix profile add nixpkgs#devenv
         shell: bash
@@ -44,19 +50,16 @@ jobs:
       - name: Determine version bump
         id: determine-bump
         run: |
-          echo "type=patch" >> $GITHUB_OUTPUT
-          # TODO: Figure out how to dynamically determine bump type
-          # cat "$GITHUB_EVENT_PATH" | jq .
+          labels=$(jq -r '.pull_request.labels[].name' < "$GITHUB_EVENT_PATH")
 
-          # LABELS=$(jq -r '.pull_request.labels[].name' < "$GITHUB_EVENT_PATH" || true)
+          echo "Labels: $labels"
 
-          # if echo "$LABELS" | grep -q "major"; then
-          #   echo "type=major" >> $GITHUB_OUTPUT
-          # elif echo "$LABELS" | grep -q "minor"; then
-          #   echo "type=minor" >> $GITHUB_OUTPUT
-          # else
-          #   echo "type=patch" >> $GITHUB_OUTPUT
-          # fi
+          bump="patch"
+
+          if echo "$labels" | grep -q "major"; then bump="major"; fi
+          if echo "$labels" | grep -q "minor"; then bump="minor"; fi
+
+          echo "type=$bump" >> $GITHUB_OUTPUT
 
       - name: Get latest git tag
         id: get-latest-git-tag
@@ -123,19 +126,33 @@ jobs:
           echo "Found DMG: $dmg_path"
           echo "dmg=$dmg_path" >> "$GITHUB_OUTPUT"
 
+      # - name: Push release commit and tag
+      #   if: ${{ github.event_name == 'push' }}
+      #   run: |
+      #     git config user.name "github-actions"
+      #     git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      #     # Push the bump commit
+      #     git push origin HEAD
+
+      #     # Push the tag
+      #     git push origin refs/tags/${{ steps.bump.outputs.version }}
+
       # Now that we have successfully built, bundled, and signed,
       # let's push the version bump commit to persist it.
       - name: Push release commit and tag
-        if: ${{ github.event_name == 'push' }}
         run: |
           git config user.name "github-actions"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Push the bump commit
-          git push origin HEAD
-
-          # Push the tag
+          git push origin HEAD:release
           git push origin refs/tags/${{ steps.bump.outputs.version }}
+
+          # Sync release branch back to main
+          git fetch origin main
+          git checkout main
+          git merge --ff-only release
+          git push origin main
 
       # Create GitHub Release with artifacts
       - name: Create GitHub Release
