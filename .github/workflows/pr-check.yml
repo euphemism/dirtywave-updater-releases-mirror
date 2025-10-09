@@ -1,0 +1,22 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - release
+
+jobs:
+  require-version-bump-label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify version-bump label
+        run: |
+          labels=$(jq -r '.pull_request.labels[].name' < "$GITHUB_EVENT_PATH")
+          echo "Labels: $labels"
+
+          if echo "$labels" | grep -Eq '^(patch|minor|major)$'; then
+            echo "✅ Found valid version-bump label"
+          else
+            echo "❌ Missing required version-bump label (patch|minor|major)" >&2
+            exit 1
+          fi
