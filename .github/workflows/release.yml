@@ -154,7 +154,6 @@ jobs:
           git merge --ff-only release
           git push origin main
 
-      # Create GitHub Release with artifacts
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
