@@ -137,8 +137,12 @@ jobs:
 
           # Sync release branch back to main
           git fetch origin main
+
           git checkout main
-          git merge --ff-only release
+
+          git rebase origin/release
+
+          # Push updated main (fail if someone else pushed in the meantime)
           git push origin main
 
       - name: Create GitHub Release
