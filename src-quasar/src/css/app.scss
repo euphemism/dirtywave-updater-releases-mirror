@@ -1,15 +1,33 @@
-@font-face {
-    font-family: stealth-57;
-    src: url(./fonts/stealth57.ttf);
+@use "sass:map";
+
+@each $color in (primary, secondary, accent, negative, positive) {
+    .glow-#{$color} {
+        filter: drop-shadow(0 0 4px var(--q-#{$color}));
+    }
+}
+
+.glow-current-color {
+    filter: drop-shadow(0 0 4px currentcolor);
+}
+
+.glow-dirty-white {
+    filter: drop-shadow(0 0 2px $dirty-white);
 }
 
 :root {
+    // @extend .text-dirty-white;
+
     overflow: hidden;
     overscroll-behavior: none;
+
+    *::selection {
+        color: var(--q-accent);
+    }
 }
 
 body {
     font-family: Montserrat, sans-serif;
+    // font-feature-settings: 'tnum'
 }
 
 ul {
@@ -19,10 +37,177 @@ ul {
     padding-inline-start: 0;
 }
 
+.bg-aero {
+    @extend .bg-blur;
+    @extend .bg-translucent-grey;
+}
+
+.bg-blur {
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+}
+
+.bg-dark-page {
+    background: $dark-page;
+}
+
+.bg-dirty-white {
+    background: $dirty-white;
+}
+
+.bg-translucent-grey {
+    background-color: rgba(32, 32, 32, 0.4);
+}
+
+.q-btn--outline.q-btn.disabled,
+.q-btn.disabled {
+    --disabled-color: rgba(255, 255, 255, 0.2);
+    background-color: transparent;
+    background-size: 10px 10px;
+    background-image: repeating-linear-gradient(45deg,
+            var(--disabled-color) 0,
+            var(--disabled-color) 1px,
+            transparent 0,
+            transparent 50%);
+    border-style: dashed;
+}
+
+.flex-min-content {
+    flex-basis: min-content;
+}
+
+.no-hover.q-hoverable:hover>.q-focus-helper {
+    opacity: 0 !important;
+    transition: unset !important;
+}
+
+.overflow-visible {
+    overflow: visible;
+}
+
+.bg-color-cycle {
+  animation: bg-color-cycle 1.5s linear infinite;
+}
+
+@keyframes bg-color-cycle {
+    0% {
+        background-color: var(--q-primary);
+        /* Start color */
+    }
+
+    50% {
+        background-color: var(--q-secondary);
+        /* Midpoint color */
+    }
+
+    100% {
+        background-color: var(--q-primary);
+        /* End color */
+    }
+}
+
+.border-color-cycle {
+  animation: border-color-cycle 1.5s linear infinite;
+}
+
+@keyframes border-color-cycle {
+    0% {
+        border-color: var(--q-primary);
+        /* Start color */
+    }
+
+    50% {
+        border-color: var(--q-secondary);
+        /* Midpoint color */
+    }
+
+    100% {
+        border-color: var(--q-primary);
+        /* End color */
+    }
+}
+
+@keyframes color-cycle {
+    0% {
+        color: var(--q-primary);
+        /* Start color */
+    }
+
+    50% {
+        color: var(--q-secondary);
+        /* Midpoint color */
+    }
+
+    100% {
+        color: var(--q-primary);
+        /* End color */
+    }
+}
+
+.color-cycle {
+    animation: color-cycle 1.5s linear infinite;
+}
+
+.q-linear-progress__model::before {
+    // TODO: Figure out if we can get this glow applied somehow when transform is being animated
+    // @extend .glow-primary;
+
+    // Had to copy the animation CSS from the source in order to merge with the bg-color-cycle animation:
+    // https://github.com/quasarframework/quasar/blob/1161092ae2dd2520ed4b78a5927428e554f582d2/ui/src/components/linear-progress/QLinearProgress.sass#L61
+    animation: q-linear-progress--indeterminate 2.1s cubic-bezier(0.65, 0.815, 0.735, 0.395) infinite, bg-color-cycle 1.5s linear infinite;
+
+}
+
 .q-toolbar {
     min-height: unset;
 }
 
-.stealth-57-font {
-    font-family: 'stealth-57';
+.q-tooltip {
+  @extend .bg-aero;
+
+  animation: border-color-cycle 1.5s linear infinite;
+  border-radius: 0px;
+  border-style: solid;
+  border-width: 1px;
+  padding: 0px map.get($space-xs, "x");
+}
+
+.text-dark-page {
+    color: $dark-page;
+}
+
+.text-monospace {
+    font-family: monospace;
+}
+
+.text-dirty-white {
+    color: $dirty-white;
+}
+
+body.desktop .q-radio:not(.disabled) .q-radio__inner:before {
+    --offset: 20%;
+    top: var(--offset);
+    bottom: var(--offset);
+    left: var(--offset);
+    right: var(--offset);
+}
+
+@font-face {
+  font-family: Departure Mono;
+  src: url(./fonts/DepartureMono-Regular.woff2);
+}
+
+// declare a class which applies it
+.departure-mono {
+  font-family: 'Departure Mono';
+}
+
+@font-face {
+  font-family: Commit Mono;
+  src: url(./fonts/commit.woff2);
+}
+
+// declare a class which applies it
+.commit-mono {
+  font-family: 'Commit Mono';
 }
