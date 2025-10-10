@@ -126,7 +126,7 @@ jobs:
           echo "dmg=$dmg_path" >> "$GITHUB_OUTPUT"
 
       # Now that we have successfully built, bundled, and signed,
-      # let's push the version bump commit to persist it.
+      # let's push the version-bump commit to persist it.
       - name: Push release commit and tag
         run: |
           git config user.name "github-actions"
