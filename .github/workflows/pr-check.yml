@@ -28,7 +28,7 @@ jobs:
         uses: thollander/actions-comment-pull-request@v3
         with:
           message: |
-            ❌ This PR is missing a required bump label.
+            ❌ This PR is missing a required version-bump label.
             Please add one of: `patch`, `minor`, or `major`.
           comment-tag: bump-check
           mode: upsert
