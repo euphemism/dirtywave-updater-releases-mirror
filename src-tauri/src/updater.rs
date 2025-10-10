@@ -105,7 +105,7 @@ pub mod app_updates {
     pub struct PendingUpdate(Mutex<Option<Update>>);
 
     pub async fn update(app: tauri::AppHandle) -> tauri_plugin_updater::Result<()> {
-                log::info!("In updater::update");
+        log::info!("In updater::update");
 
         if let Some(update) = app.updater()?.check().await? {
             log::info!("update found: {}", update.raw_json);

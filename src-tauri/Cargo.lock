@@ -2237,7 +2237,7 @@ dependencies = [
 
 [[package]]
 name = "dirtywave-updater"
-version = "0.2.5"
+version = "0.3.4"
 dependencies = [
  "anyhow",
  "chrono",

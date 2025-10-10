@@ -37,7 +37,9 @@ fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
 
     tauri::async_runtime::spawn(async move {
         log::info!("invoking the updater bit");
-        crate::updater::app_updates::update(updater_app_handle.clone()).await.unwrap();
+        crate::updater::app_updates::update(updater_app_handle.clone())
+            .await
+            .unwrap();
     });
 
     firmware::setup_firmware_store(app_handle)?;

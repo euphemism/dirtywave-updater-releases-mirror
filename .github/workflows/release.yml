@@ -30,6 +30,11 @@ jobs:
           fetch-depth: 0 # fetch full history including tags
 
       - uses: cachix/install-nix-action@v31
+
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+        with:
+          diagnostic-endpoint: ""
+
       - uses: cachix/cachix-action@v16
         with:
           name: devenv
