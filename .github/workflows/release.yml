@@ -169,7 +169,7 @@ jobs:
       #   uses: softprops/action-gh-release@v2
       #   with:
       #     repository: Dirtywave/Updater
-      #     token: ${{ secrets.UPDATER_TOKEN }}
+      #     token: ${{ secrets.UPDATER_RELEASE_MIRROR_TOKEN }}
       #     files: |
       #       ${{ steps.sign-updater.outputs.signature }}
       #       ${{ steps.locate-dmg.outputs.dmg }}
