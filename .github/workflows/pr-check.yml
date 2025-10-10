@@ -13,23 +13,28 @@ jobs:
       - name: Verify version-bump label
         id: verify
         run: |
-          labels=$(jq -r '.pull_request.labels[].name // empty' "$GITHUB_EVENT_PATH")
+          labels=$(jq -r '.pull_request.labels[].name // empty' "$GITHUB_EVENT_PATH" | grep -E '^(patch|minor|major)$' || true)
 
-          echo "Labels: $labels"
+          echo "Detected bump labels: $labels"
 
-          if echo "$labels" | grep -Eq '^(patch|minor|major)$'; then
-            echo "valid=true" >> $GITHUB_OUTPUT
+          count=$(echo "$labels" | grep -c . || true)
+
+          if [ "$count" -eq 1 ]; then
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+            echo "reason=valid" >> "$GITHUB_OUTPUT"
+          elif [ "$count" -eq 0 ]; then
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            echo "reason=❌ Missing required version-bump label (patch|minor|major)" >> "$GITHUB_OUTPUT"
           else
-            echo "valid=false" >> $GITHUB_OUTPUT
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            echo "reason=❌ Multiple version-bump labels applied; only one of (patch|minor|major) is allowed" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Post comment if invalid
         if: steps.verify.outputs.valid == 'false'
         uses: thollander/actions-comment-pull-request@v3
         with:
-          message: |
-            ❌ This PR is missing a required version-bump label.
-            Please add one of: `patch`, `minor`, or `major`.
+          message: ${{ steps.verify.outputs.reason }}
           comment-tag: bump-check
           mode: upsert
 
@@ -43,6 +48,5 @@ jobs:
       - name: Fail if invalid
         if: steps.verify.outputs.valid == 'false'
         run: |
-          echo "❌ Missing required version-bump label (patch|minor|major)" >&2
-
+          echo "${{ steps.verify.outputs.reason }}" >&2
           exit 1
