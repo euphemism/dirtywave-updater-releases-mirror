@@ -134,21 +134,44 @@ jobs:
       # let's push the version-bump commit to persist it.
       - name: Push release commit and tag
         run: |
-          git config user.name "github-actions"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
+          # Push release branch and tag
           git push origin HEAD:release
           git push origin refs/tags/${{ steps.bump.outputs.version }}
 
-          # Sync release branch back to main
+          # Make sure we have the latest main
           git fetch origin main
 
-          git checkout main
+          # Start from release (which now has A, B, C, <Bump>)
+          git checkout release
 
-          git rebase origin/release
+          # Create a local branch to build the new main
+          git checkout -B main-with-bump
 
-          # Push updated main (fail if someone else pushed in the meantime)
-          git push origin main
+          # Rebase the commits that are in main but not in release (D, etc.)
+          # onto the bump commit (HEAD of release)
+          git rebase --onto HEAD origin/release origin/main
+
+          # Now history is A, B, C, <Bump>, D…
+
+          # Update main with this rewritten history
+          git branch -f main
+          git push --force-with-lease origin main --tags
+
+      # git config user.name "github-actions"
+      # git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      # git push origin HEAD:release
+      # git push origin refs/tags/${{ steps.bump.outputs.version }}
+
+      # # Sync release branch back to main
+      # git fetch origin main
+
+      # git checkout main
+
+      # git rebase origin/release
+
+      # # Push updated main (fail if someone else pushed in the meantime)
+      # git push --force-with-lease origin main --tags
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
