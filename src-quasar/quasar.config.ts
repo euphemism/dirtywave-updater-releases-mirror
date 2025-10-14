@@ -1,8 +1,8 @@
 // Configuration for your app
 // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file
 
-import { fileURLToPath } from 'node:url';
-import { defineConfig } from '#q-app/wrappers';
+import { fileURLToPath } from "node:url";
+import { defineConfig } from "#q-app/wrappers";
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -14,36 +14,37 @@ export default defineConfig((ctx) => {
 		// app boot file (/src/boot)
 		// --> boot files are part of "main.js"
 		// https://v2.quasar.dev/quasar-cli-vite/boot-files
-		boot: ['i18n'],
+		boot: ["i18n", "tauri", "errors"],
 
 		// https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#css
-		css: ['app.scss'],
+		css: ["app.scss"],
 
 		// https://github.com/quasarframework/quasar/tree/dev/extras
 		extras: [
 			// 'ionicons-v4',
 			// 'mdi-v7',
-			// 'fontawesome-v6',
+			'fontawesome-v6',
 			// 'eva-icons',
 			// 'themify',
 			// 'line-awesome',
 			// 'roboto-font-latin-ext', // this or either 'roboto-font', NEVER both!
 
 			// 'roboto-font', // optional, you are not bound to it
-			'material-icons', // optional, you are not bound to it
+			"material-icons", // optional, you are not bound to it
+      "material-symbols-outlined"
 		],
 
 		// Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#build
 		build: {
 			// don't minify for debug builds
-			minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
+			minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,
 
 			// produce sourcemaps for debug builds
 			sourcemap: !!process.env.TAURI_ENV_DEBUG,
 
 			target: {
-				browser: ['es2022', 'firefox115', 'chrome115', 'safari14'],
-				node: 'node20',
+				browser: ["es2022", "firefox115", "chrome115", "safari14"],
+				node: "node20",
 			},
 
 			typescript: {
@@ -52,7 +53,7 @@ export default defineConfig((ctx) => {
 				// extendTsConfig (tsConfig) {}
 			},
 
-			vueRouterMode: 'hash', // available values: 'hash', 'history'
+			vueRouterMode: "hash", // available values: 'hash', 'history'
 			// vueRouterBase,
 			// vueDevtools,
 			// vueOptionsAPI: false,
@@ -61,7 +62,10 @@ export default defineConfig((ctx) => {
 
 			// publicPath: '/',
 			// analyze: true,
-			// env: {},
+			env: {
+				GITHUB_API_TOKEN: process.env.GITHUB_API_TOKEN,
+				PINIA_STORE_PATH: process.env.PINIA_STORE_PATH,
+			},
 			// rawDefine: {}
 			// ignorePublicFolder: true,
 			// minify: false,
@@ -75,14 +79,14 @@ export default defineConfig((ctx) => {
 					clearScreen: false,
 
 					// Env variables starting with the item of `envPrefix` will be exposed in tauri's source code through `import.meta.env`.
-					envPrefix: ['VITE_', 'TAURI_ENV_*'],
+					envPrefix: ["VITE_", "TAURI_ENV_*"],
 				};
 			},
 			// viteVuePluginOptions: {},
 
 			vitePlugins: [
 				[
-					'@intlify/unplugin-vue-i18n/vite',
+					"@intlify/unplugin-vue-i18n/vite",
 					{
 						// if you want to use Vue I18n Legacy API, you need to set `compositionOnly: false`
 						// compositionOnly: false,
@@ -91,32 +95,35 @@ export default defineConfig((ctx) => {
 						// you need to set `runtimeOnly: false`
 						// runtimeOnly: false,
 
-						ssr: ctx.modeName === 'ssr',
+						ssr: ctx.modeName === "ssr",
 
 						// you need to set i18n resource including paths !
-						include: [fileURLToPath(new URL('./src/i18n', import.meta.url))],
+						include: [fileURLToPath(new URL("./src/i18n", import.meta.url))],
 					},
 				],
 
 				[
-					'vite-plugin-checker',
+					"vite-plugin-checker",
 					{
 						vueTsc: true,
 						eslint: {
-							lintCommand: 'eslint -c ./eslint.config.js "./src*/**/*.{ts,js,mjs,cjs,vue}"',
+							lintCommand:
+								'eslint -c ./eslint.config.js "./src*/**/*.{ts,js,mjs,cjs,vue}"',
 							useFlatConfig: true,
 						},
 					},
 					{ server: false },
 				],
 			],
+
+			vueOptionsAPI: false,
 		},
 
 		// Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#devserver
 		devServer: {
 			hmr: host
 				? {
-						protocol: 'ws',
+						protocol: "ws",
 						host,
 						port: 1421,
 					}
@@ -129,20 +136,20 @@ export default defineConfig((ctx) => {
 			strictPort: true,
 			watch: {
 				// Tell vite to ignore watching `src-tauri`
-				ignored: ['**/src-tauri/**'],
+				ignored: ["**/src-tauri/**"],
 			},
 		},
 
 		// https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#framework
 		framework: {
 			config: {
-				brand: {
-					primary: '#00e5ff',
-					dark: '#202020',
-				},
-
 				dark: true,
+				screen: {
+					bodyClasses: true,
+				},
 			},
+
+			cssAddon: true,
 
 			// iconSet: 'material-icons', // Quasar icon set
 			// lang: 'en-US', // Quasar language pack
@@ -155,12 +162,12 @@ export default defineConfig((ctx) => {
 			// directives: [],
 
 			// Quasar plugins
-			plugins: [],
+			plugins: ["Notify", "Screen"],
 		},
 
-		// animations: 'all', // --- includes all animations
+		animations: "all", // --- includes all animations
 		// https://v2.quasar.dev/options/animations
-		animations: [],
+		// animations: ['bounceInLeft', 'bounceOutRight', 'headShake'],
 
 		// https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#sourcefiles
 		// sourceFiles: {
@@ -181,7 +188,7 @@ export default defineConfig((ctx) => {
 			// (gets superseded if process.env.PORT is specified at runtime)
 
 			middlewares: [
-				'render', // keep this as last one
+				"render", // keep this as last one
 			],
 
 			// extendPackageJson (json) {},
@@ -201,7 +208,7 @@ export default defineConfig((ctx) => {
 
 		// https://v2.quasar.dev/quasar-cli-vite/developing-pwa/configuring-pwa
 		pwa: {
-			workboxMode: 'GenerateSW', // 'GenerateSW' or 'InjectManifest'
+			workboxMode: "GenerateSW", // 'GenerateSW' or 'InjectManifest'
 			// swFilename: 'sw.js',
 			// manifestFilename: 'manifest.json',
 			// extendManifestJson (json) {},
@@ -230,12 +237,12 @@ export default defineConfig((ctx) => {
 			// extendPackageJson (json) {},
 
 			// Electron preload scripts (if any) from /src-electron, WITHOUT file extension
-			preloadScripts: ['electron-preload'],
+			preloadScripts: ["electron-preload"],
 
 			// specify the debugging port to use for the Electron app when running in development mode
 			inspectPort: 5858,
 
-			bundler: 'packager', // 'packager' or 'builder'
+			bundler: "packager", // 'packager' or 'builder'
 
 			packager: {
 				// https://github.com/electron-userland/electron-packager/blob/master/docs/api.md#options
@@ -251,7 +258,7 @@ export default defineConfig((ctx) => {
 			builder: {
 				// https://www.electron.build/configuration/configuration
 
-				appId: 'dirtywave-updater',
+				appId: "dirtywave-updater",
 			},
 		},
 
